@@ -129,7 +129,7 @@ const nodeList: ReadonlyArray<PossibleNodeConfigType> = [
     port: 443,
     method: 'auto',
     uuid: '1386f85e-657b-4d6e-9d56-78badb75e1fd',
-    alterId: 0,
+    alterId: 1,
     network: 'tcp',
   },
   {
@@ -542,6 +542,8 @@ const nodeList: ReadonlyArray<PossibleNodeConfigType> = [
     type: NodeTypeEnum.Hysteria2,
     hostname: 'example.com',
     port: 443,
+    portHopping: '5000-6000,8000-9000',
+    portHoppingInterval: 30,
     password: 'password',
     downloadBandwidth: 100,
     uploadBandwidth: 100,
@@ -574,6 +576,20 @@ const nodeList: ReadonlyArray<PossibleNodeConfigType> = [
         allowedIps: '0.0.0.0/0, ::/0',
         presharedKey: 'presharedKey2',
         reservedBits: [2, 2, 3],
+      },
+      {
+        publicKey: 'publicKey3',
+        endpoint: '162.159.195.115:7156',
+        allowedIps: '0.0.0.0/0, ::/0',
+        presharedKey: 'presharedKey3',
+        reservedBits: [3, 2, 3],
+      },
+      {
+        publicKey: 'publicKey4',
+        endpoint: '[2606:4700:d0:0:8537:1837:8101:92fd]:942',
+        allowedIps: '0.0.0.0/0, ::/0',
+        presharedKey: 'presharedKey4',
+        reservedBits: [4, 2, 3],
       },
     ],
   },
@@ -675,7 +691,7 @@ const expectedNodes: Record<string, any>[] = [
     server_port: 443,
     security: 'auto',
     uuid: '1386f85e-657b-4d6e-9d56-78badb75e1fd',
-    alter_id: 0,
+    alter_id: 1,
   },
   {
     type: 'vmess',
@@ -784,7 +800,6 @@ const expectedNodes: Record<string, any>[] = [
   {
     type: 'vless',
     tag: 'vless.complex',
-    security: 'none',
     uuid: '1386f85e-657b-4d6e-9d56-78badb75e1fd',
     flow: 'xtls-rprx-vision',
     tls: {
@@ -824,7 +839,6 @@ const expectedNodes: Record<string, any>[] = [
     tag: 'vless.http',
     server: 'example.com',
     server_port: 443,
-    security: 'none',
     uuid: '1386f85e-657b-4d6e-9d56-78badb75e1fd',
     flow: 'xtls-rprx-vision',
     tls: {
@@ -844,7 +858,6 @@ const expectedNodes: Record<string, any>[] = [
     tag: 'vless.ws',
     server: 'example.com',
     server_port: 443,
-    security: 'none',
     uuid: '1386f85e-657b-4d6e-9d56-78badb75e1fd',
     flow: 'xtls-rprx-vision',
     tls: {
@@ -859,7 +872,6 @@ const expectedNodes: Record<string, any>[] = [
     tag: 'vless.quic',
     server: 'example.com',
     server_port: 443,
-    security: 'none',
     uuid: '1386f85e-657b-4d6e-9d56-78badb75e1fd',
     flow: 'xtls-rprx-vision',
     tls: {
@@ -874,7 +886,6 @@ const expectedNodes: Record<string, any>[] = [
     tag: 'vless.grpc',
     server: 'example.com',
     server_port: 443,
-    security: 'none',
     uuid: '1386f85e-657b-4d6e-9d56-78badb75e1fd',
     flow: 'xtls-rprx-vision',
     tls: {
@@ -889,7 +900,6 @@ const expectedNodes: Record<string, any>[] = [
     tag: 'vless.httpupgrade',
     server: 'example.com',
     server_port: 443,
-    security: 'none',
     uuid: '1386f85e-657b-4d6e-9d56-78badb75e1fd',
     flow: 'xtls-rprx-vision',
     tls: {
@@ -994,6 +1004,8 @@ const expectedNodes: Record<string, any>[] = [
     tag: 'hysteria2',
     server: 'example.com',
     server_port: 443,
+    server_ports: ['5000:6000', '8000:9000'],
+    hop_interval: '30s',
     up_mbps: 100,
     down_mbps: 100,
     obfs: { type: 'salamander', password: 'password' },
@@ -1010,24 +1022,40 @@ const expectedNodes: Record<string, any>[] = [
   {
     type: 'wireguard',
     tag: 'wg',
-    local_address: ['10.0.0.1/32', '2001:db8:85a3::8a2e:370:7334/128'],
+    address: ['10.0.0.1/32', '2001:db8:85a3::8a2e:370:7334/128'],
     private_key: 'privateKey',
     peers: [
       {
-        server: 'wg1.example.com',
-        server_port: 51820,
+        address: 'wg1.example.com',
+        port: 51820,
         public_key: 'publicKey1',
         pre_shared_key: 'presharedKey1',
         allowed_ips: ['0.0.0.0/0', '::/0'],
         reserved: [1, 2, 3],
       },
       {
-        server: 'wg2.example.com',
-        server_port: 51820,
+        address: 'wg2.example.com',
+        port: 51820,
         public_key: 'publicKey2',
         pre_shared_key: 'presharedKey2',
         allowed_ips: ['0.0.0.0/0', '::/0'],
         reserved: [2, 2, 3],
+      },
+      {
+        address: '162.159.195.115',
+        port: 7156,
+        public_key: 'publicKey3',
+        pre_shared_key: 'presharedKey3',
+        allowed_ips: ['0.0.0.0/0', '::/0'],
+        reserved: [3, 2, 3],
+      },
+      {
+        address: '[2606:4700:d0:0:8537:1837:8101:92fd]',
+        port: 942,
+        public_key: 'publicKey4',
+        pre_shared_key: 'presharedKey4',
+        allowed_ips: ['0.0.0.0/0', '::/0'],
+        reserved: [4, 2, 3],
       },
     ],
     mtu: 1420,
@@ -1048,4 +1076,82 @@ test('getSingboxNodeNames', async (t) => {
     ),
     ['ss'],
   )
+})
+
+test('getSingboxNodes', async (t) => {
+  t.deepEqual(singbox.getSingboxNodes(nodeList), expectedNodes)
+
+  t.deepEqual(
+    singbox.getSingboxNodes(
+      nodeList,
+      (nodeConfig) => nodeConfig.nodeName === 'ss',
+    ),
+    [expectedNodes[0]],
+  )
+})
+
+const tailscaleEndpoint = {
+  type: 'tailscale',
+  tag: 'ts',
+  auth_key: 'tskey-auth-xxxx',
+  control_url: 'https://controlplane.tailscale.com',
+  ephemeral: true,
+  hostname: 'surgio-node',
+  accept_routes: true,
+  exit_node: '100.64.0.1',
+  exit_node_allow_lan_access: false,
+  state_directory: '/var/lib/tailscale',
+  routing_mark: 1234,
+  detour: 'proxy',
+}
+
+const tailscaleNodeList: ReadonlyArray<PossibleNodeConfigType> = [
+  {
+    type: NodeTypeEnum.Tailscale,
+    nodeName: 'ts',
+    authKey: 'tskey-auth-xxxx',
+    controlUrl: 'https://controlplane.tailscale.com',
+    ephemeral: true,
+    hostname: 'surgio-node',
+    acceptRoutes: true,
+    exitNode: '100.64.0.1',
+    exitNodeAllowLanAccess: false,
+    stateDir: '/var/lib/tailscale',
+    routingMark: 1234,
+    underlyingProxy: 'proxy',
+  },
+  {
+    nodeName: 'ss',
+    type: NodeTypeEnum.Shadowsocks,
+    hostname: 'example.com',
+    port: 443,
+    method: 'chacha20-ietf-poly1305',
+    password: 'password',
+  },
+]
+
+test('getSingboxEndpoints', async (t) => {
+  t.deepEqual(singbox.getSingboxEndpoints(tailscaleNodeList), [
+    tailscaleEndpoint,
+  ])
+
+  t.deepEqual(
+    singbox.getSingboxEndpoints(
+      tailscaleNodeList,
+      (nodeConfig) => nodeConfig.nodeName === 'ts',
+    ),
+    [tailscaleEndpoint],
+  )
+})
+
+test('Tailscale is emitted as an endpoint, not an outbound', async (t) => {
+  // 不应出现在 outbounds 中
+  t.false(
+    singbox
+      .getSingboxNodes(tailscaleNodeList)
+      .some((node) => node.type === 'tailscale'),
+  )
+
+  // 但其 tag 应出现在节点名列表中，方便被 selector/urltest 引用
+  t.deepEqual(singbox.getSingboxNodeNames(tailscaleNodeList), ['ss', 'ts'])
 })

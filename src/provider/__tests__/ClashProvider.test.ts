@@ -71,6 +71,8 @@ test('ClashProvider.getSubscriptionUserInfo', async (t) => {
 test('getClashSubscription', async (t) => {
   const { nodeList } = await getClashSubscription({
     url: 'http://example.com/clash-sample.yaml',
+    requestHeaders: { 'user-agent': 'clash-for-windows' },
+    cacheKey: 'test-cache-key',
   })
   const config = [...nodeList]
 
@@ -90,6 +92,7 @@ test('getClashSubscription', async (t) => {
       'ss4',
       'ss-wss',
       'hysteria2',
+      'vless',
     ].join(', '),
   )
 
@@ -251,12 +254,16 @@ test('getClashSubscription', async (t) => {
     alpn: ['h3'],
     skipCertVerify: false,
     sni: 'server.com',
+    portHopping: '5000-6000;7000',
+    portHoppingInterval: 10,
   })
 })
 
 test('getClashSubscription udpRelay', async (t) => {
   const { nodeList: config } = await getClashSubscription({
     url: 'http://example.com/clash-sample.yaml',
+    requestHeaders: { 'user-agent': 'clash-for-windows' },
+    cacheKey: 'test-cache-key',
     udpRelay: true,
   })
 
@@ -307,6 +314,54 @@ test('getClashSubscription udpRelay', async (t) => {
   })
 })
 
+test('getClashSubscription keeps reality short-id as plain string', async (t) => {
+  const scope = nock('http://local')
+    .get('/short-id')
+    .reply(
+      200,
+      `
+proxies:
+  - name: "short-id numeric"
+    type: vless
+    server: server.com
+    port: 443
+    tls: true
+    uuid: uuid-1
+    flow: xtls-rprx-vision
+    reality-opts:
+      public-key: publicKey1
+      short-id: 09561058
+    client-fingerprint: chrome
+  - name: "short-id quoted"
+    type: vless
+    server: server.com
+    port: 443
+    tls: true
+    uuid: uuid-2
+    flow: xtls-rprx-vision
+    reality-opts:
+      public-key: publicKey2
+      short-id: '12'
+    client-fingerprint: chrome
+    `,
+    )
+
+  const { nodeList } = await getClashSubscription({
+    url: 'http://local/short-id',
+    requestHeaders: { 'user-agent': 'clash-for-windows' },
+    cacheKey: 'test-cache-key-short-id',
+  })
+
+  t.deepEqual(
+    nodeList.map((node) =>
+      node.type === NodeTypeEnum.Vless ? node.realityOpts?.shortId : undefined,
+    ),
+    ['09561058', '12'],
+  )
+
+  scope.done()
+})
+
 test('getClashSubscription - invalid yaml', async (t) => {
   const scope = nock('http://local')
     .get('/fail-1')
@@ -322,19 +377,10 @@ foo: bar
   await t.throwsAsync(
     async () => {
       await getClashSubscription({
-        url: 'http://example.com/test-v2rayn-sub.txt',
+        url: 'http://local/fail-1',
+        requestHeaders: { 'user-agent': 'clash-for-windows' },
+        cacheKey: 'test-cache-key-1',
       })
-    },
-    {
-      instanceOf: Error,
-      message:
-        'http://example.com/test-v2rayn-sub.txt 订阅内容有误，请检查后重试',
-    },
-  )
-
-  await t.throwsAsync(
-    async () => {
-      await getClashSubscription({ url: 'http://local/fail-1' })
     },
     {
       instanceOf: Error,
@@ -344,7 +390,11 @@ foo: bar
 
   await t.throwsAsync(
     async () => {
-      await getClashSubscription({ url: 'http://local/fail-2' })
+      await getClashSubscription({
+        url: 'http://local/fail-2',
+        requestHeaders: { 'user-agent': 'clash-for-windows' },
+        cacheKey: 'test-cache-key-2',
+      })
     },
     {
       instanceOf: Error,
@@ -356,6 +406,71 @@ foo: bar
 })
 
 test('vmess Configurations', (t) => {
+  t.deepEqual(
+    parseClashConfig([
+      {
+        type: 'vmess',
+        name: 'vmess meta alpn',
+        server: 'server',
+        port: 443,
+        uuid: 'uuid',
+        alterId: 32,
+        cipher: 'auto',
+        network: 'tcp',
+        tls: true,
+        alpn: ['h2', 'http/1.1'],
+      },
+    ]),
+    [
+      {
+        type: NodeTypeEnum.Vmess,
+        nodeName: 'vmess meta alpn',
+        hostname: 'server',
+        port: 443,
+        uuid: 'uuid',
+        alterId: '32',
+        method: 'auto',
+        network: 'tcp',
+        tls: true,
+        alpn: ['h2', 'http/1.1'],
+        udpRelay: false,
+        skipCertVerify: false,
+        tls13: false,
+      },
+    ],
+  )
+
+  t.deepEqual(
+    parseClashConfig([
+      {
+        type: 'vless',
+        name: 'vless alpn',
+        server: 'server',
+        port: 443,
+        uuid: 'uuid',
+        cipher: 'none',
+        network: 'tcp',
+        tls: true,
+        alpn: ['h2'],
+      },
+    ]),
+    [
+      {
+        type: NodeTypeEnum.Vless,
+        nodeName: 'vless alpn',
+        hostname: 'server',
+        port: 443,
+        uuid: 'uuid',
+        method: 'none',
+        network: 'tcp',
+        alpn: ['h2'],
+        udpRelay: false,
+        skipCertVerify: false,
+        tls13: false,
+      },
+    ],
+  )
+
   t.deepEqual(
     parseClashConfig([
       {
@@ -491,6 +606,7 @@ test('vmess Configurations', (t) => {
           'public-key': 'publicKey',
           'short-id': 'shortId',
         },
+        encryption: 'encryption',
       },
     ]),
     [
@@ -516,8 +632,76 @@ test('vmess Configurations', (t) => {
           shortId: 'shortId',
           spiderX: undefined,
         },
+        encryption: 'encryption',
       },
     ],
+  )
+
+  t.deepEqual(
+    parseClashConfig([
+      {
+        type: 'vless',
+        name: 'vless-xhttp',
+        server: 'server',
+        port: 443,
+        uuid: 'uuid',
+        cipher: 'none',
+        udp: true,
+        tls: true,
+        network: 'xhttp',
+        'client-fingerprint': 'chrome',
+        'packet-encoding': 'xudp',
+        'xhttp-opts': {
+          path: '/xhttp',
+          mode: 'auto',
+        },
+        'ech-opts': {
+          enable: true,
+          config: 'ech-config',
+        },
+        encryption: 'none',
+      },
+    ]),
+    [
+      {
+        type: NodeTypeEnum.Vless,
+        nodeName: 'vless-xhttp',
+        hostname: 'server',
+        port: 443,
+        uuid: 'uuid',
+        method: 'none',
+        network: 'xhttp',
+        udpRelay: true,
+        clientFingerprint: 'chrome',
+        packetEncoding: 'xudp',
+        xhttpOpts: {
+          path: '/xhttp',
+          mode: 'auto',
+        },
+        echOpts: {
+          enable: true,
+          config: 'ech-config',
+        },
+        skipCertVerify: false,
+        tls13: false,
+        encryption: 'none',
+      },
+    ],
+  )
+
+  t.deepEqual(
+    parseClashConfig([
+      {
+        type: 'vmess',
+        name: 'vmess-xhttp',
+        server: 'server',
+        port: 443,
+        uuid: 'uuid',
+        cipher: 'auto',
+        network: 'xhttp',
+      },
+    ]),
+    [],
   )
 })
 
@@ -788,17 +972,16 @@ test.serial('ClashProvider requestUserAgent', async (t) => {
     await provider.getNodeList()
   })
 
-  sandbox.assert.calledWithExactly(
+  sandbox.assert.calledWith(
     mock,
     'http://example.com/clash-sample.yaml',
-    {
-      requestUserAgent: 'test useragent',
-    },
+    sinon.match.has('user-agent', sinon.match(/^test useragent surgio\//)),
+    sinon.match.string,
   )
 })
 
 test.serial(
-  'ClashProvider requestUserAgent with passGatewayRequestUserAgent',
+  'ClashProvider requestUserAgent with passGatewayRequestHeaders',
   async (t) => {
     const mock = sandbox.spy(Provider, 'requestCacheableResource')
 
@@ -807,7 +990,9 @@ test.serial(
       type: SupportProviderEnum.Clash,
       url: 'http://example.com/clash-sample.yaml',
     })
-    provider.passGatewayRequestUserAgent = true
+
+    // @ts-expect-error
+    provider.passGatewayRequestHeaders = ['user-agent']
 
     await t.notThrowsAsync(async () => {
       await provider.getNodeList({
@@ -815,40 +1000,38 @@ test.serial(
       })
     })
 
-    sandbox.assert.calledWithExactly(
+    sandbox.assert.calledWith(
       mock,
       'http://example.com/clash-sample.yaml',
-      {
-        requestUserAgent: 'test useragent',
-      },
+      sinon.match.has('user-agent', sinon.match(/^test useragent surgio\//)),
+      sinon.match.string,
     )
   },
 )
 
 test.serial(
-  'ClashProvider requestUserAgent without passGatewayRequestUserAgent',
+  'ClashProvider requestUserAgent without passGatewayRequestHeaders',
   async (t) => {
     const mock = sandbox.spy(Provider, 'requestCacheableResource')
 
-    const requestUserAgent = 'test useragent'
     const provider = new ClashProvider('test', {
       type: SupportProviderEnum.Clash,
       url: 'http://example.com/clash-sample.yaml',
     })
-    provider.passGatewayRequestUserAgent = false
 
     await t.notThrowsAsync(async () => {
       await provider.getNodeList({
-        requestUserAgent,
+        requestHeaders: {
+          'x-custom': 'value',
+        },
       })
     })
 
-    sandbox.assert.calledWithExactly(
+    sandbox.assert.calledWith(
       mock,
       'http://example.com/clash-sample.yaml',
-      {
-        requestUserAgent: 'clash',
-      },
+      sinon.match.has('user-agent', sinon.match(/^clash surgio\//)),
+      sinon.match.string,
     )
   },
 )
@@ -872,4 +1055,462 @@ test('ClashProvider with hooks', async (t) => {
     t.is(node.nodeName, 'override')
   }
   t.true(afterNodeListResponse.calledOnce)
+})
+
+test('getClashSubscription - invalid yaml syntax', async (t) => {
+  const scope = nock('http://local')
+    .get('/fail-3')
+    .reply(
+      200,
+      `
+foo: [bar
+`,
+    )
+
+  await t.throwsAsync(
+    async () => {
+      await getClashSubscription({
+        url: 'http://local/fail-3',
+        requestHeaders: { 'user-agent': 'clash-for-windows' },
+        cacheKey: 'test-cache-key-3',
+      })
+    },
+    {
+      instanceOf: Error,
+      message: 'http://local/fail-3 不是一个合法的 YAML 文件',
+    },
+  )
+
+  scope.done()
+})
+
+test('parseClashConfig filters unsupported nodes', (t) => {
+  const nodeList = parseClashConfig([
+    {
+      type: 'ss',
+      name: 'unsupported-plugin',
+      server: 'server',
+      port: 443,
+      cipher: 'chacha20-ietf-poly1305',
+      password: 'password',
+      plugin: 'shadow-tls',
+      'plugin-opts': {},
+    },
+    {
+      type: 'ss',
+      name: 'quic-plugin',
+      server: 'server',
+      port: 443,
+      cipher: 'chacha20-ietf-poly1305',
+      password: 'password',
+      plugin: 'v2ray-plugin',
+      'plugin-opts': {
+        mode: 'quic',
+      },
+    },
+    {
+      type: 'vmess',
+      name: 'unsupported-network',
+      server: 'server',
+      port: 443,
+      uuid: 'uuid',
+      alterId: 0,
+      cipher: 'auto',
+      network: 'quic',
+    },
+    {
+      type: 'vless',
+      name: 'vless-no-tls',
+      server: 'server',
+      port: 443,
+      uuid: 'uuid',
+      tls: false,
+    },
+    {
+      type: 'vless',
+      name: 'reality-no-fingerprint',
+      server: 'server',
+      port: 443,
+      uuid: 'uuid',
+      tls: true,
+      'reality-opts': {
+        'public-key': 'publicKey',
+        'short-id': 'shortId',
+      },
+    },
+    {
+      type: 'unknown',
+      name: 'unknown',
+    },
+  ])
+
+  t.deepEqual(nodeList, [])
+})
+
+test('parseClashConfig socks5 options', (t) => {
+  t.deepEqual(
+    parseClashConfig([
+      {
+        type: 'socks5',
+        name: 'socks5',
+        server: 'server',
+        port: 443,
+        username: 'user',
+        password: 'pass',
+        udp: true,
+        tls: true,
+        'skip-cert-verify': true,
+      },
+    ]),
+    [
+      {
+        type: NodeTypeEnum.Socks5,
+        nodeName: 'socks5',
+        hostname: 'server',
+        port: 443,
+        username: 'user',
+        password: 'pass',
+        udpRelay: true,
+        tls: true,
+        skipCertVerify: true,
+      },
+    ],
+  )
+})
+
+test('parseClashConfig tuic configurations', (t) => {
+  t.deepEqual(
+    parseClashConfig([
+      {
+        type: 'tuic',
+        name: 'tuic-v5',
+        server: 'example.com',
+        port: 443,
+        uuid: 'uuid',
+        password: 'password',
+        'skip-cert-verify': true,
+        sni: 'sni.example.com',
+        alpn: ['h3'],
+        ports: '4000-5000',
+        'hop-interval': 5,
+      },
+      {
+        type: 'tuic',
+        name: 'tuic-v4',
+        server: 'example.com',
+        port: 443,
+        token: 'token',
+        'skip-cert-verify': true,
+        sni: 'sni.example.com',
+        alpn: ['h3'],
+        ports: '4000-5000',
+        'hop-interval': 5,
+      },
+    ]),
+    [
+      {
+        type: NodeTypeEnum.Tuic,
+        nodeName: 'tuic-v5',
+        hostname: 'example.com',
+        port: 443,
+        password: 'password',
+        uuid: 'uuid',
+        version: 5,
+        skipCertVerify: true,
+        tls13: false,
+        sni: 'sni.example.com',
+        alpn: ['h3'],
+        portHopping: '4000-5000',
+        portHoppingInterval: 5,
+      },
+      {
+        type: NodeTypeEnum.Tuic,
+        nodeName: 'tuic-v4',
+        hostname: 'example.com',
+        port: 443,
+        token: 'token',
+        skipCertVerify: true,
+        tls13: false,
+        sni: 'sni.example.com',
+        alpn: ['h3'],
+        portHopping: '4000-5000',
+        portHoppingInterval: 5,
+      },
+    ],
+  )
+})
+
+test('parseClashConfig hysteria2 invalid obfs', (t) => {
+  t.throws(
+    () => {
+      parseClashConfig([
+        {
+          type: 'hysteria2',
+          name: 'hysteria2',
+          server: 'server.com',
+          port: 443,
+          auth: 'password',
+          obfs: 'plain',
+        },
+      ])
+    },
+    {
+      instanceOf: Error,
+      message:
+        '不支持从 Clash 订阅中读取 Hysteria2 节点，因为其 obfs 不是 salamander',
+    },
+  )
+})
+
+test('parseClashConfig anytls options', (t) => {
+  t.deepEqual(
+    parseClashConfig([
+      {
+        type: 'anytls',
+        name: 'anytls',
+        server: 'server',
+        port: 443,
+        password: 'password',
+        udp: false,
+        'skip-cert-verify': false,
+        'idle-session-check-interval': 0,
+        'idle-session-timeout': 0,
+        'min-idle-session': 0,
+      },
+    ]),
+    [
+      {
+        type: NodeTypeEnum.AnyTLS,
+        nodeName: 'anytls',
+        hostname: 'server',
+        port: 443,
+        password: 'password',
+        udpRelay: false,
+        tls13: false,
+        skipCertVerify: false,
+        idleSessionCheckInterval: 0,
+        idleSessionTimeout: 0,
+        minIdleSessions: 0,
+      },
+    ],
+  )
+})
+
+test('parseClashConfig masque options', (t) => {
+  t.deepEqual(
+    parseClashConfig([
+      {
+        type: 'masque',
+        name: 'masque',
+        server: 'server.com',
+        port: 443,
+        'private-key': 'private-key',
+        'public-key': 'public-key',
+        ip: '172.16.0.2/32',
+        ipv6: 'fd00::2/128',
+        dns: '1.1.1.1',
+        network: 'quic',
+        sni: 'masque.example.com',
+        'connect-uri': 'https://cloudflareaccess.com',
+        mtu: 1280,
+        keepalive: 30,
+        udp: true,
+        'remote-dns-resolve': true,
+        'congestion-controller': 'bbr',
+        'bbr-profile': 'conservative',
+        'handshake-timeout': 20,
+        'dialer-proxy': 'upstream',
+      },
+      {
+        type: 'masque',
+        name: 'masque-h3-l4proxy',
+        server: 'server.com',
+        port: 443,
+        'private-key': 'private-key',
+        'public-key': 'public-key',
+        network: 'h3-l4proxy',
+        udp: false,
+      },
+    ]),
+    [
+      {
+        type: NodeTypeEnum.Masque,
+        authMode: 'key-pair',
+        nodeName: 'masque',
+        hostname: 'server.com',
+        port: 443,
+        privateKey: 'private-key',
+        publicKey: 'public-key',
+        ip: '172.16.0.2/32',
+        ipv6: 'fd00::2/128',
+        dnsServers: ['1.1.1.1'],
+        network: 'h3',
+        sni: 'masque.example.com',
+        connectUri: 'https://cloudflareaccess.com',
+        mtu: 1280,
+        keepalive: 30,
+        udpRelay: true,
+        remoteDnsResolve: true,
+        congestionController: 'bbr',
+        bbrProfile: 'conservative',
+        handshakeTimeout: 20,
+        underlyingProxy: 'upstream',
+      },
+      {
+        type: NodeTypeEnum.Masque,
+        authMode: 'key-pair',
+        nodeName: 'masque-h3-l4proxy',
+        hostname: 'server.com',
+        port: 443,
+        privateKey: 'private-key',
+        publicKey: 'public-key',
+        network: 'h3-l4proxy',
+        udpRelay: false,
+      },
+    ],
+  )
+})
+
+test('parseClashConfig TrustTunnel options', (t) => {
+  t.deepEqual(
+    parseClashConfig([
+      {
+        type: 'trusttunnel',
+        name: 'stash-trust',
+        server: 'stash.example.com',
+        port: 443,
+        username: 'stash-user',
+        password: 'stash-pass',
+        quic: true,
+        alpn: ['h3'],
+        sni: 'sni.stash.example.com',
+        'skip-cert-verify': true,
+        'server-cert-fingerprint': 'stash-sha256',
+        ports: '443,8443,5000-6000',
+        'hop-interval': 30,
+        'dialer-proxy': 'stash-upstream',
+      },
+      {
+        type: 'trusttunnel',
+        name: 'mihomo-trust',
+        server: 'mihomo.example.com',
+        port: 8443,
+        username: 'mihomo-user',
+        password: 'mihomo-pass',
+        quic: true,
+        alpn: ['h3'],
+        udp: true,
+        fingerprint: 'mihomo-sha256',
+        'client-fingerprint': 'chrome',
+        'health-check': true,
+        'name-cert-verify': 'verify.example.com',
+        'congestion-controller': 'bbr',
+        'bbr-profile': 'aggressive',
+        'max-connections': 8,
+        'min-streams': 5,
+        'dialer-proxy': 'mihomo-upstream',
+        'interface-name': 'en0',
+        'ip-version': 'ipv4-prefer',
+        tfo: true,
+        mptcp: true,
+      },
+    ]),
+    [
+      {
+        type: NodeTypeEnum.TrustTunnel,
+        nodeName: 'stash-trust',
+        hostname: 'stash.example.com',
+        port: 443,
+        username: 'stash-user',
+        password: 'stash-pass',
+        quic: true,
+        alpn: ['h3'],
+        sni: 'sni.stash.example.com',
+        skipCertVerify: true,
+        serverCertFingerprintSha256: 'stash-sha256',
+        portHopping: '443;8443;5000-6000',
+        portHoppingInterval: 30,
+        underlyingProxy: 'stash-upstream',
+      },
+      {
+        type: NodeTypeEnum.TrustTunnel,
+        nodeName: 'mihomo-trust',
+        hostname: 'mihomo.example.com',
+        port: 8443,
+        username: 'mihomo-user',
+        password: 'mihomo-pass',
+        quic: true,
+        alpn: ['h3'],
+        udpRelay: true,
+        serverCertFingerprintSha256: 'mihomo-sha256',
+        clientFingerprint: 'chrome',
+        healthCheck: true,
+        nameCertVerify: 'verify.example.com',
+        congestionController: 'bbr',
+        bbrProfile: 'aggressive',
+        maxConnections: 8,
+        minStreams: 5,
+        underlyingProxy: 'mihomo-upstream',
+        interfaceName: 'en0',
+        ipVersion: 'ipv4-prefer',
+        tfo: true,
+        mptcp: true,
+      },
+    ],
+  )
+})
+
+test('parseClashConfig tailscale options', (t) => {
+  t.deepEqual(
+    parseClashConfig([
+      {
+        type: 'tailscale',
+        name: 'stash-tailnet',
+        hostname: 'stash-node',
+        ephemeral: false,
+      },
+      {
+        type: 'tailscale',
+        name: 'mihomo-tailnet',
+        'auth-key': 'tskey-auth-example',
+        hostname: 'mihomo-node',
+        'control-url': 'https://controlplane.tailscale.com',
+        'state-dir': './tailscale',
+        ephemeral: false,
+        udp: false,
+        'accept-routes': true,
+        'exit-node': 'auto:any',
+        'exit-node-allow-lan-access': false,
+        'dialer-proxy': 'upstream',
+        'interface-name': 'WLAN',
+        'routing-mark': 0,
+        'ip-version': 'ipv4-prefer',
+      },
+    ]),
+    [
+      {
+        type: NodeTypeEnum.Tailscale,
+        nodeName: 'stash-tailnet',
+        hostname: 'stash-node',
+        ephemeral: false,
+      },
+      {
+        type: NodeTypeEnum.Tailscale,
+        nodeName: 'mihomo-tailnet',
+        authKey: 'tskey-auth-example',
+        hostname: 'mihomo-node',
+        controlUrl: 'https://controlplane.tailscale.com',
+        stateDir: './tailscale',
+        ephemeral: false,
+        udpRelay: false,
+        acceptRoutes: true,
+        exitNode: 'auto:any',
+        exitNodeAllowLanAccess: false,
+        underlyingProxy: 'upstream',
+        interfaceName: 'WLAN',
+        routingMark: 0,
+        ipVersion: 'ipv4-prefer',
+      },
+    ],
+  )
 })

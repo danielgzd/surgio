@@ -39,6 +39,12 @@ export const singaporeFilter: NodeFilterType = (item) => {
   )
 }
 
+export const germanyFilter: NodeFilterType = (item) => {
+  return ['🇩🇪', ...FLAGS['🇩🇪']].some((key) =>
+    item.nodeName.toUpperCase().includes(key),
+  )
+}
+
 export const taiwanFilter: NodeFilterType = (item) => {
   return ['🇹🇼', ...TAIWAN].some((key) =>
     item.nodeName.toUpperCase().includes(key),
@@ -73,6 +79,7 @@ export const youtubePremiumFilter: NodeFilterType = mergeFilters([
   hkFilter,
   singaporeFilter,
   taiwanFilter,
+  germanyFilter,
 ])
 
 // istanbul ignore next
@@ -114,3 +121,9 @@ export const hysteria2Filter: NodeFilterType = (item) =>
 // istanbul ignore next
 export const vlessFilter: NodeFilterType = (item) =>
   item.type === NodeTypeEnum.Vless
+// istanbul ignore next
+export const anytlsFilter: NodeFilterType = (item) =>
+  item.type === NodeTypeEnum.AnyTLS
+// istanbul ignore next
+export const tailscaleFilter: NodeFilterType = (item) =>
+  item.type === NodeTypeEnum.Tailscale

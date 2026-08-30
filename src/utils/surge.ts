@@ -38,7 +38,12 @@ export const getSurgeNodes = function (
 
       const [nodeName, nodeConfigString] = result
 
-      return [nodeName, appendCommonConfig(nodeConfigString, nodeConfig)]
+      return [
+        nodeName,
+        nodeConfig.type === NodeTypeEnum.Tailscale
+          ? nodeConfigString
+          : appendCommonConfig(nodeConfigString, nodeConfig),
+      ]
     })
     .filter(
       (item): item is NonNullable<ReturnType<typeof nodeListMapper>> =>
@@ -129,6 +134,48 @@ export const getSurgeWireguardNodes = (
   return result.join('\n\n')
 }
 
+export const getSurgeTailscaleNodes = (
+  nodeList: ReadonlyArray<PossibleNodeConfigType>,
+  filter?: NodeFilterType | SortedNodeFilterType,
+): string => {
+  return applyFilter(nodeList, filter)
+    .map((nodeConfig) => {
+      if (nodeConfig.type !== NodeTypeEnum.Tailscale) {
+        return undefined
+      }
+
+      assertSurgeTailscaleAuthKey(nodeConfig)
+
+      const nodeConfigSection = [
+        `[Tailscale ${nodeConfig.nodeName}]`,
+        `auth-key=${nodeConfig.authKey}`,
+        ...pickAndFormatStringList(
+          nodeConfig,
+          [
+            'controlUrl',
+            'hostname',
+            'derpOnly',
+            'exitNode',
+            'idleKeepalive',
+            'preferIpv6',
+          ],
+          { keyFormat: 'kebabCase' },
+        ),
+      ]
+
+      if (nodeConfig.dnsServers) {
+        nodeConfigSection.push(`dns-server=${nodeConfig.dnsServers.join(', ')}`)
+      }
+      if (nodeConfig.mtu !== undefined) {
+        nodeConfigSection.push(`mtu=${nodeConfig.mtu}`)
+      }
+
+      return nodeConfigSection.join('\n')
+    })
+    .filter((item): item is string => item !== undefined)
+    .join('\n\n')
+}
+
 export const getSurgeNodeNames = function (
   nodeList: ReadonlyArray<PossibleNodeConfigType>,
   filter?: NodeFilterType | SortedNodeFilterType,
@@ -186,8 +233,8 @@ function nodeListMapper(
             'https',
             nodeConfig.hostname,
             nodeConfig.port,
-            nodeConfig.username,
-            nodeConfig.password,
+            nodeConfig.username /* istanbul ignore next */ || '',
+            nodeConfig.password /* istanbul ignore next */ || '',
           ].join(', '),
         ].join(' = '),
       ]
@@ -202,8 +249,8 @@ function nodeListMapper(
             'http',
             nodeConfig.hostname,
             nodeConfig.port,
-            nodeConfig.username,
-            nodeConfig.password,
+            nodeConfig.username /* istanbul ignore next */ || '',
+            nodeConfig.password /* istanbul ignore next */ || '',
           ].join(', '),
         ].join(' = '),
       ]
@@ -220,7 +267,7 @@ function nodeListMapper(
             nodeConfig.port,
             ...pickAndFormatStringList(
               nodeConfig,
-              ['psk', 'obfs', 'obfsHost', 'version', 'reuse'],
+              ['psk', 'obfs', 'obfsHost', 'version', 'reuse', 'ipVersion'],
               {
                 keyFormat: 'kebabCase',
               },
@@ -468,6 +515,103 @@ function nodeListMapper(
         ].join(', '),
       ]
 
+    case NodeTypeEnum.AnyTLS: {
+      const result: string[] = [
+        'anytls',
+        nodeConfig.hostname,
+        `${nodeConfig.port}`,
+        `password=${nodeConfig.password}`,
+        ...pickAndFormatStringList(nodeConfig, ['reuse'], {
+          keyFormat: 'kebabCase',
+        }),
+      ]
+
+      return [
+        nodeConfig.nodeName,
+        [nodeConfig.nodeName, result.join(', ')].join(' = '),
+      ]
+    }
+
+    case NodeTypeEnum.Masque: {
+      if (nodeConfig.authMode !== 'basic-auth') {
+        logger.warn(
+          `Surge 仅支持 basic-auth 模式的 MASQUE 节点，节点 ${nodeConfig.nodeName} 会被省略`,
+        )
+        return undefined
+      }
+
+      const result: string[] = [
+        'masque',
+        nodeConfig.hostname,
+        `${nodeConfig.port}`,
+        ...pickAndFormatStringList(nodeConfig, ['username', 'password']),
+      ]
+
+      if (nodeConfig.alpn) {
+        result.push(`alpn=${JSON.stringify(nodeConfig.alpn.join(','))}`)
+      }
+
+      return [
+        nodeConfig.nodeName,
+        [nodeConfig.nodeName, result.join(', ')].join(' = '),
+      ]
+    }
+
+    case NodeTypeEnum.TrustTunnel: {
+      if (nodeConfig.quic) {
+        logger.warn(
+          `Surge 不支持 QUIC 模式的 TrustTunnel 节点，节点 ${nodeConfig.nodeName} 会被省略`,
+        )
+        return undefined
+      }
+
+      const result: string[] = [
+        'trust-tunnel',
+        nodeConfig.hostname,
+        `${nodeConfig.port}`,
+        ...pickAndFormatStringList(
+          nodeConfig,
+          ['username', 'password', 'maxStreams'],
+          { keyFormat: 'kebabCase' },
+        ),
+      ]
+
+      if (nodeConfig.alpn) {
+        result.push(`alpn=${JSON.stringify(nodeConfig.alpn.join(','))}`)
+      }
+
+      if (nodeConfig.headers) {
+        result.push(
+          `headers=${Object.entries(nodeConfig.headers)
+            .map(([key, value]) => `${key}:${value}`)
+            .join(';')}`,
+        )
+      }
+
+      return [
+        nodeConfig.nodeName,
+        [nodeConfig.nodeName, result.join(', ')].join(' = '),
+      ]
+    }
+
+    case NodeTypeEnum.Tailscale: {
+      assertSurgeTailscaleAuthKey(nodeConfig)
+
+      const policyOptions = [
+        `section-name=${nodeConfig.nodeName}`,
+        ...pickAndFormatStringList(
+          nodeConfig,
+          ['underlyingProxy', 'testUrl', 'testTimeout', 'ecn', 'noErrorAlert'],
+          { keyFormat: 'kebabCase' },
+        ),
+      ]
+
+      return [
+        nodeConfig.nodeName,
+        `${nodeConfig.nodeName} = tailscale, ${policyOptions.join(', ')}`,
+      ]
+    }
+
     case NodeTypeEnum.Wireguard:
       logger.info(
         `请配合使用 getSurgeWireguardNodes 生成 ${nodeConfig.nodeName} 节点配置`,
@@ -492,6 +636,16 @@ function nodeListMapper(
   }
 }
 
+function assertSurgeTailscaleAuthKey(
+  nodeConfig: Extract<PossibleNodeConfigType, { type: NodeTypeEnum.Tailscale }>,
+): asserts nodeConfig is typeof nodeConfig & { authKey: string } {
+  if (!nodeConfig.authKey) {
+    throw new Error(
+      `无法为 Surge 生成 Tailscale 节点 ${nodeConfig.nodeName}：缺少必填字段 authKey`,
+    )
+  }
+}
+
 function appendCommonConfig(
   original: string,
   nodeConfig: PossibleNodeConfigType,
@@ -511,6 +665,8 @@ function appendCommonConfig(
         'sni',
         'serverCertFingerprintSha256',
         'blockQuic',
+        'portHopping',
+        'portHoppingInterval',
       ],
       {
         keyFormat: 'kebabCase',
@@ -522,7 +678,13 @@ function appendCommonConfig(
   if (nodeConfig.type === NodeTypeEnum.Tuic) {
     appendConfig.push(
       ...('alpn' in nodeConfig && Array.isArray(nodeConfig.alpn)
-        ? [`alpn=${nodeConfig.alpn.join(',')}`]
+        ? (() => {
+            const alpn = nodeConfig.alpn as string[]
+            const preferred = ['h3', 'h2', 'http/1.1'].find((a) =>
+              alpn.includes(a),
+            )
+            return [`alpn=${preferred ?? alpn[0]}`]
+          })()
         : []),
     )
   }

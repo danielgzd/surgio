@@ -22,10 +22,12 @@ const {
   vmessFilter,
   wireguardFilter,
   vlessFilter,
+  anytlsFilter,
+  hysteria2Filter,
 } = internalFilters
 const logger = createLogger({ service: 'surgio:utils:loon' })
 
-// https://loon0x00.github.io/LoonManual/#/cn/node
+// https://nsloon.app/docs/Node/#%E8%8A%82%E7%82%B9%E6%A0%BC%E5%BC%8F
 export const getLoonNodes = function (
   list: ReadonlyArray<PossibleNodeConfigType>,
   filter?: NodeFilterType | SortedNodeFilterType,
@@ -95,6 +97,73 @@ export const getLoonNodes = function (
           return config.join(',')
         }
 
+        case NodeTypeEnum.Hysteria2: {
+          const config: Array<string | number> = [
+            `${nodeConfig.nodeName} = Hysteria2`,
+            nodeConfig.hostname,
+            nodeConfig.port,
+            JSON.stringify(nodeConfig.password),
+          ]
+
+          if (nodeConfig.sni) {
+            config.push(`sni=${nodeConfig.sni}`)
+          }
+
+          if (nodeConfig.skipCertVerify) {
+            config.push('skip-cert-verify=true')
+          }
+
+          if (nodeConfig.tfo) {
+            config.push('fast-open=true')
+          }
+
+          if (nodeConfig.obfsPassword) {
+            config.push(
+              `salamander-password=${JSON.stringify(nodeConfig.obfsPassword)}`,
+            )
+          }
+
+          if (nodeConfig.udpRelay) {
+            config.push('udp=true')
+          }
+
+          return config.join(',')
+        }
+
+        case NodeTypeEnum.AnyTLS: {
+          const config: Array<string | number> = [
+            `${nodeConfig.nodeName} = AnyTLS`,
+            nodeConfig.hostname,
+            nodeConfig.port,
+            JSON.stringify(nodeConfig.password),
+          ]
+
+          if (nodeConfig.sni) {
+            config.push(`sni=${nodeConfig.sni}`)
+          }
+
+          if (nodeConfig.skipCertVerify) {
+            config.push('skip-cert-verify=true')
+          }
+
+          if (nodeConfig.udpRelay) {
+            config.push('udp=true')
+          }
+
+          if (nodeConfig.blockQuic === 'auto') {
+            logger.warn(
+              `Loon 不支持 AnyTLS 节点 ${nodeConfig.nodeName} 的 blockQuic=auto，将省略 block-quic 参数`,
+            )
+          } else if (nodeConfig.blockQuic !== undefined) {
+            config.push(`block-quic=${nodeConfig.blockQuic === 'on'}`)
+          }
+
+          if (nodeConfig.tfo) {
+            config.push('fast-open=true')
+          }
+
+          return config.join(',')
+        }
         case NodeTypeEnum.Vless:
         case NodeTypeEnum.Vmess: {
           if (
@@ -116,16 +185,36 @@ export const getLoonNodes = function (
             }`,
             nodeConfig.hostname,
             nodeConfig.port,
-            JSON.stringify(nodeConfig.uuid),
-            `transport=${nodeConfig.network}`,
           ]
 
           if (nodeConfig.type === NodeTypeEnum.Vmess) {
             config.push(
               nodeConfig.method === 'auto'
-                ? `method=chacha20-poly1305`
-                : `method=${nodeConfig.method}`,
+                ? `chacha20-poly1305`
+                : nodeConfig.method,
             )
+          }
+
+          config.push(
+            JSON.stringify(nodeConfig.uuid),
+            `transport=${nodeConfig.network}`,
+          )
+
+          // VLESS Reality 支持
+          if (nodeConfig.type === NodeTypeEnum.Vless) {
+            if (nodeConfig.flow) {
+              config.push(`flow=${nodeConfig.flow}`)
+            }
+
+            if (nodeConfig.realityOpts) {
+              if (nodeConfig.realityOpts.publicKey) {
+                config.push(`public-key="${nodeConfig.realityOpts.publicKey}"`)
+              }
+
+              if (nodeConfig.realityOpts.shortId) {
+                config.push(`short-id=${nodeConfig.realityOpts.shortId}`)
+              }
+            }
           }
 
           if (nodeConfig.network === 'ws' && nodeConfig.wsOpts) {
@@ -162,14 +251,16 @@ export const getLoonNodes = function (
             config.push(`over-tls=true`)
 
             if (nodeConfig.sni) {
-              config.push(`tls-name=${nodeConfig.sni}`)
+              config.push(`sni=${nodeConfig.sni}`)
             }
 
             if (nodeConfig.skipCertVerify) {
               config.push(`skip-cert-verify=true`)
             }
           }
-
+          if (nodeConfig.udpRelay) {
+            config.push('udp=true')
+          }
           return config.join(',')
         }
 
@@ -179,7 +270,7 @@ export const getLoonNodes = function (
             nodeConfig.hostname,
             nodeConfig.port,
             JSON.stringify(nodeConfig.password),
-            `tls-name=${nodeConfig.sni || nodeConfig.hostname}`,
+            `sni=${nodeConfig.sni || nodeConfig.hostname}`,
             `skip-cert-verify=${nodeConfig.skipCertVerify === true}`,
           ]
 
@@ -221,7 +312,7 @@ export const getLoonNodes = function (
             JSON.stringify(
               nodeConfig.password /* istanbul ignore next */ || '',
             ),
-            `tls-name=${nodeConfig.sni || nodeConfig.hostname}`,
+            `sni=${nodeConfig.sni || nodeConfig.hostname}`,
             `skip-cert-verify=${nodeConfig.skipCertVerify === true}`,
           ]
 
@@ -263,6 +354,10 @@ export const getLoonNodes = function (
             }
           }
 
+          if (nodeConfig.peers[0].keepalive) {
+            config.push(`keepalive=${nodeConfig.peers[0].keepalive}`)
+          }
+
           for (const peer of nodeConfig.peers) {
             const peerConfig = [
               `public-key=${JSON.stringify(peer.publicKey)}`,
@@ -270,20 +365,18 @@ export const getLoonNodes = function (
             ]
 
             if (peer.allowedIps) {
-              peers.push(`allowed-ips=${JSON.stringify(peer.allowedIps)}}}`)
+              peerConfig.push(`allowed-ips=${JSON.stringify(peer.allowedIps)}`)
             }
             if (peer.presharedKey) {
-              peers.push(`preshared-key=${JSON.stringify(peer.presharedKey)}}}`)
+              peerConfig.push(
+                `preshared-key=${JSON.stringify(peer.presharedKey)}`,
+              )
             }
             if (peer.reservedBits) {
-              peers.push(`reserved=${JSON.stringify(peer.reservedBits)}}`)
+              peerConfig.push(`reserved=${JSON.stringify(peer.reservedBits)}`)
             }
 
             peers.push(`{${peerConfig.join(',')}}`)
-          }
-
-          if (nodeConfig.peers[0].keepalive) {
-            config.push(`keepalive=${nodeConfig.peers[0].keepalive}`)
           }
 
           config.push(`peers=[${peers.join(',')}]`)
@@ -317,6 +410,8 @@ export const getLoonNodeNames = function (
   return applyFilter(
     list.filter(
       (item) =>
+        anytlsFilter(item) ||
+        hysteria2Filter(item) ||
         shadowsocksFilter(item) ||
         shadowsocksrFilter(item) ||
         vmessFilter(item) ||

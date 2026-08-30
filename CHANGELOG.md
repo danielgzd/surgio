@@ -1,3 +1,271 @@
+# [3.19.0](https://github.com/geekdada/surgio/compare/v3.18.0...v3.19.0) (2026-08-12)
+
+
+
+# [3.18.0](https://github.com/geekdada/surgio/compare/v3.17.1...v3.18.0) (2026-08-09)
+
+
+
+## [3.17.1](https://github.com/geekdada/surgio/compare/v3.17.0...v3.17.1) (2026-08-09)
+
+
+
+# [3.17.0](https://github.com/geekdada/surgio/compare/v3.16.0...v3.17.0) (2026-07-13)
+
+
+### Features
+
+* add sing-box tailscale endpoint support ([b5ca1c1](https://github.com/geekdada/surgio/commit/b5ca1c13c2e6adcd7eb1cc8cfe5da7935c8ff1bc))
+* add tailscale node support ([86c23bc](https://github.com/geekdada/surgio/commit/86c23bc9be2da66e6c3d56ba0473501ede9914dd))
+
+
+
+# [3.16.0](https://github.com/geekdada/surgio/compare/v3.15.0...v3.16.0) (2026-05-24)
+
+
+### Bug Fixes
+
+* **vless:** ensure xhttpOpts has default path value ([074ca78](https://github.com/geekdada/surgio/commit/074ca788ad21947193bdf79cdb5cc9c346f504b5))
+
+
+### Features
+
+* support vless xhttp for mihomo ([19c54b0](https://github.com/geekdada/surgio/commit/19c54b06de53e8303019cba7771c166ecfc02407))
+* **validators:** improve VLESS xhttp options schema validation ([25914d0](https://github.com/geekdada/surgio/commit/25914d083385516e0a58772fb322531f96fcb2ff))
+
+
+
+# [3.15.0](https://github.com/geekdada/surgio/compare/v3.14.0...v3.15.0) (2026-05-23)
+
+
+### Bug Fixes
+
+* **provider:** preserve reality short-id strings without extra quotes ([5245ff3](https://github.com/geekdada/surgio/commit/5245ff3d422287a21e8fc22c321dab157d874a3c))
+* **provider:** 修复 Clash 配置中 short-id 数字转换问题 ([78fe16c](https://github.com/geekdada/surgio/commit/78fe16c7f8dfc2b2cfa30ef855f0957114273c99))
+
+
+### Features
+
+* **anyls:** add reuse field support for Surge output ([57e43b6](https://github.com/geekdada/surgio/commit/57e43b6fc2044f2eaed7fab3702122a1fb27c152))
+* support anytls quantumultx output ([348e5b2](https://github.com/geekdada/surgio/commit/348e5b233c9649073a156d9c777a4c8bcba46b57))
+* **utils:** 添加Loon对AnyTLS节点类型的支持 ([8e36569](https://github.com/geekdada/surgio/commit/8e365697bff14fa7fb6cf260737e43f0d772640c))
+
+
+
+# [3.14.0](https://github.com/geekdada/surgio/compare/v3.13.3...v3.14.0) (2026-04-22)
+
+
+### Features
+
+* **utils:** 添加 Loon 配置生成器的 UDP 和 Reality 支持 ([f54ffac](https://github.com/geekdada/surgio/commit/f54ffac19e95c104ad35510344f1f8a4916544d8))
+
+
+
+## [3.13.3](https://github.com/geekdada/surgio/compare/v3.13.2...v3.13.3) (2026-04-22)
+
+
+
+## [3.13.2](https://github.com/geekdada/surgio/compare/v3.13.1...v3.13.2) (2026-03-08)
+
+
+### Bug Fixes
+
+* **utils:** prioritize common ALPN protocols and use a single ALPN for Tuic nodes in Surge configuration. ([25b20b6](https://github.com/geekdada/surgio/commit/25b20b6514d37afc24bb315e14f1bcd4b93bd4b3))
+
+
+
+## [3.13.1](https://github.com/geekdada/surgio/compare/v3.13.0...v3.13.1) (2026-03-07)
+
+
+### Bug Fixes
+
+* **generator:** deep merge objects in createExtendFunction ([cde3351](https://github.com/geekdada/surgio/commit/cde335156cc7f0afe4b34bd9ab5d7ad7e58061db)), closes [#309](https://github.com/geekdada/surgio/issues/309)
+* **provider:** support port ranges for tuic and hysteria2 ([1ddd25b](https://github.com/geekdada/surgio/commit/1ddd25b0e24b6e3075a603fb1cb5258cea2c3eb7))
+* **utils:** preserve colons in SS URI passwords ([5edbe43](https://github.com/geekdada/surgio/commit/5edbe438b5017b775d44e24d1633767612580799)), closes [#310](https://github.com/geekdada/surgio/issues/310)
+* **validators:** make username/password optional in HTTP/HTTPS node validators ([6b30f9a](https://github.com/geekdada/surgio/commit/6b30f9a96f2ea33defa149731b94801babc0ffaf)), closes [#321](https://github.com/geekdada/surgio/issues/321)
+
+
+### Features
+
+* **http:** add headers support to Clash HTTP/HTTPS proxies ([ea4a5f4](https://github.com/geekdada/surgio/commit/ea4a5f4e4f0a29eef2218a22cecc4c23c3cf6d9f)), closes [#321](https://github.com/geekdada/surgio/issues/321)
+
+
+
+# [3.13.0](https://github.com/geekdada/surgio/compare/v3.12.2...v3.13.0) (2026-02-28)
+
+
+### Bug Fixes
+
+* add AnyTLS case to CustomProvider switch statement ([8e67b6e](https://github.com/geekdada/surgio/commit/8e67b6e00d6ddb8b93a61d140f75ae5503b8d0e6))
+* preserve explicit AnyTLS false/zero fields ([c2d6e8a](https://github.com/geekdada/surgio/commit/c2d6e8aead098c97ec9b2cf16ae77581c9562a1d))
+
+
+### Features
+
+* add AnyTLS protocol support ([a3375fd](https://github.com/geekdada/surgio/commit/a3375fdd131a182241e03000eade078e0a0a96da))
+
+
+
+## [3.12.2](https://github.com/geekdada/surgio/compare/v3.12.1...v3.12.2) (2026-01-20)
+
+
+
+## [3.12.1](https://github.com/geekdada/surgio/compare/v3.12.0...v3.12.1) (2026-01-19)
+
+
+
+# [3.12.0](https://github.com/geekdada/surgio/compare/v3.11.3...v3.12.0) (2026-01-19)
+
+
+### Bug Fixes
+
+* **artifact:** correct variable name for subscription user info map ([6097c0e](https://github.com/geekdada/surgio/commit/6097c0e7610606fd636eb3f1471211caa31c077b))
+* **commands:** update subscriptions command for consistent naming ([3840c2e](https://github.com/geekdada/surgio/commit/3840c2e82c6f17c9a0a85f7eee3678d34675bf3d))
+* **http-client:** conditionally apply agent based on NODE_ENV ([75433fc](https://github.com/geekdada/surgio/commit/75433fcefd76046639b78b2d0ace90139adbf516))
+* **provider:** add requestHeaders support to getSubscriptionUserInfo ([18fa69b](https://github.com/geekdada/surgio/commit/18fa69b9160839d0212006570967e27e839456b3))
+* **provider:** improve header handling and cache key generation ([7f6d3af](https://github.com/geekdada/surgio/commit/7f6d3af2a7a89e8a0be10f0ef3f3da1b0e9702aa))
+* **types:** fix subscriptionUserInfo spelling consistency ([077c4f5](https://github.com/geekdada/surgio/commit/077c4f5447cf8f417a85cb3e267c58f755c298f7))
+
+
+### Features
+
+* **gateway:** add passRequestHeaders configuration ([ca01b1b](https://github.com/geekdada/surgio/commit/ca01b1b4327aebd811199520e756e5408ec2fc63))
+* **generator:** enhance artifact subscription info handling ([f54843e](https://github.com/geekdada/surgio/commit/f54843ed43643bfe041e70e50a0d999c15998664))
+* **provider:** add getNodeListV2 method ([8bb2d29](https://github.com/geekdada/surgio/commit/8bb2d299d4429c4c57c2aa240bb9bd3c6a3f14dc))
+* **provider:** add logging and error handling to requestCacheableResource ([43a7588](https://github.com/geekdada/surgio/commit/43a758842bd100e52a2352cb113debfa8d06bc0d))
+* **provider:** enhance request headers handling and UA initialization ([e6c9272](https://github.com/geekdada/surgio/commit/e6c9272080c0bfcce1f93490a25218f06460790e))
+* **provider:** migrate from passGatewayRequestUserAgent to passGatewayRequestHeaders ([f7b03e6](https://github.com/geekdada/surgio/commit/f7b03e6189d3572088a456df868e54939e8f5828))
+* **provider:** migrate from passGatewayRequestUserAgent to passGatewayRequestHeaders ([95b5672](https://github.com/geekdada/surgio/commit/95b56729a966ec56ffd6a148ec0db7d74467bb61))
+* **provider:** update all providers for consistent naming ([2b1af4a](https://github.com/geekdada/surgio/commit/2b1af4a09abd7a098982f7c64b6aa3a69ab00d9d))
+* **types:** improve HTTP headers type definition ([42f4472](https://github.com/geekdada/surgio/commit/42f4472875ea0d93b2a860c24745a9f4cf5eb16c))
+
+
+### BREAKING CHANGES
+
+* **provider:** passGatewayRequestUserAgent property has been removed. Use passGatewayRequestHeaders array instead.
+
+
+
+## [3.11.3](https://github.com/geekdada/surgio/compare/v3.11.2...v3.11.3) (2025-12-31)
+
+
+### Features
+
+* Add `nodeConfig.serverCertFingerprintSha256` as `fingerprint` for Trojan nodes in Clash ([0f3184c](https://github.com/geekdada/surgio/commit/0f3184c03000ed1fc25396c6a4c931fcb596f1f5)), closes [#311](https://github.com/geekdada/surgio/issues/311)
+* destDirs ([6b1ceef](https://github.com/geekdada/surgio/commit/6b1ceefcee9e52e0d3d03cb4dd5be1702fba17d3))
+
+
+
+## [3.11.2](https://github.com/geekdada/surgio/compare/v3.11.1...v3.11.2) (2025-09-14)
+
+
+### Bug Fixes
+
+* 修复 SIP002 解析逻辑，支持明文 AEAD-2022 和传统 Base64 格式 ([efd9bbb](https://github.com/geekdada/surgio/commit/efd9bbb1d5e03ab0611ae62476c646576bb94de0))
+
+
+
+## [3.11.1](https://github.com/geekdada/surgio/compare/v3.11.0...v3.11.1) (2025-08-06)
+
+
+
+# [3.11.0](https://github.com/geekdada/surgio/compare/v3.10.9...v3.11.0) (2025-07-25)
+
+
+
+## [3.10.9](https://github.com/geekdada/surgio/compare/v3.10.8...v3.10.9) (2025-07-25)
+
+
+### Features
+
+* **sing-box:** Support portHopping and portHoppingInterval ([225c6e5](https://github.com/geekdada/surgio/commit/225c6e56c118edae75e17bc2c5d50835cb08d449))
+
+
+
+## [3.10.8](https://github.com/geekdada/surgio/compare/v3.10.7...v3.10.8) (2025-07-09)
+
+
+### Features
+
+* Add germanyFilter and update youtubePremiumFilter ([a2bf19b](https://github.com/geekdada/surgio/commit/a2bf19ba9dd31a3052fee90cd5616317a668ecce))
+
+
+
+## [3.10.7](https://github.com/geekdada/surgio/compare/v3.10.6...v3.10.7) (2025-03-11)
+
+
+### Bug Fixes
+
+* 处理 check 方法可能的错误情况 ([23684c4](https://github.com/geekdada/surgio/commit/23684c4afd39edaf45c5f845001dc7fad13ed823))
+
+
+
+## [3.10.6](https://github.com/geekdada/surgio/compare/v3.10.5...v3.10.6) (2025-01-06)
+
+
+
+## [3.10.5](https://github.com/geekdada/surgio/compare/v3.10.4...v3.10.5) (2024-12-31)
+
+
+### Features
+
+* Enable dual-stack resolving for ioredis ([d28922b](https://github.com/geekdada/surgio/commit/d28922b085effe65ff1edeac271042e01e4893dd))
+
+
+
+## [3.10.4](https://github.com/geekdada/surgio/compare/v3.10.3...v3.10.4) (2024-12-31)
+
+
+
+## [3.10.3](https://github.com/geekdada/surgio/compare/v3.10.2...v3.10.3) (2024-11-20)
+
+
+### Bug Fixes
+
+* clash wireguard config pre-shared-key key name wrong ([760af58](https://github.com/geekdada/surgio/commit/760af582352de2217c05959cdd433b4c895397eb))
+* correct formatting of peers in Loon configuration ([096db3d](https://github.com/geekdada/surgio/commit/096db3dddb46b77349cbf3fb9daae3dfeb79bea3))
+* distinguish pre-shared-key by clashCore ([f43be62](https://github.com/geekdada/surgio/commit/f43be6287329bc80a5717cf65b73b74abf76ebbb))
+* update Loon node configuration to include keepalive and correct peers formatting ([76782f4](https://github.com/geekdada/surgio/commit/76782f4e8b01e2e0b609f6d9297cb83fb909518b))
+* **utils:** HTTP(S) optional username & password ([805b93e](https://github.com/geekdada/surgio/commit/805b93e61943e9bebc477cf514f3e708fe4ab644))
+
+
+
+## [3.10.2](https://github.com/geekdada/surgio/compare/v3.10.1...v3.10.2) (2024-09-21)
+
+
+
+## [3.10.1](https://github.com/geekdada/surgio/compare/v3.10.0...v3.10.1) (2024-09-17)
+
+
+### Bug Fixes
+
+* Output correct port-hopping config for Surge ([ecc6901](https://github.com/geekdada/surgio/commit/ecc69018cbe8a001e4588e8b8e55261e46a756f6))
+
+
+### Features
+
+* Support port-hopping config from Clash subscription ([1869a1f](https://github.com/geekdada/surgio/commit/1869a1fd49fc41dec7575b802f25b3ac8998c301))
+
+
+
+# [3.10.0](https://github.com/geekdada/surgio/compare/v3.9.3...v3.10.0) (2024-09-08)
+
+
+### Features
+
+* Add port hopping support to Clash and Surge config ([8d867cc](https://github.com/geekdada/surgio/commit/8d867cc036a2ccace8386ef2297c12866a4660b2))
+
+
+
+## [3.9.3](https://github.com/geekdada/surgio/compare/v3.9.2...v3.9.3) (2024-08-12)
+
+
+### Bug Fixes
+
+* singbox wireguard ipv6 endpoint parsing; singbox test case ([b013657](https://github.com/geekdada/surgio/commit/b013657350cdb2ebf016b302c0eada884d018950))
+
+
+
 ## [3.9.2](https://github.com/geekdada/surgio/compare/v3.9.1...v3.9.2) (2024-06-30)
 
 

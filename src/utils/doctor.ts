@@ -12,14 +12,14 @@ export const generateDoctorInfo = async (
   pjson: PackageJson,
 ): Promise<ReadonlyArray<string>> => {
   const doctorInfo: string[] = []
-  const checkInfo = await promisify<CheckInfo>(check)()
+  const checkInfo = await promisify<CheckInfo>(check)().catch(() => null)
 
   try {
     const gatewayPkg: PackageJson = await readJSON(
       join(cwd, 'node_modules/@surgio/gateway/package.json'),
     )
     doctorInfo.push(`@surgio/gateway: ${gatewayPkg.version}`)
-  } catch (_) {
+  } catch {
     // no catch
   }
 

@@ -21,6 +21,121 @@ test('CustomProvider should work', async (t) => {
   t.deepEqual(await provider.getNodeList(), [])
 })
 
+test('CustomProvider supports masque nodes', async (t) => {
+  const provider = new CustomProvider('test', {
+    type: SupportProviderEnum.Custom,
+    nodeList: [
+      {
+        type: NodeTypeEnum.Masque,
+        authMode: 'basic-auth',
+        nodeName: 'masque-test',
+        hostname: 'masque.example.com',
+        port: 443,
+        username: 'user',
+        password: 'pass',
+        alpn: ['h3'],
+      },
+    ],
+  })
+
+  t.deepEqual(await provider.getNodeList(), [
+    {
+      type: 'masque',
+      authMode: 'basic-auth',
+      nodeName: 'masque-test',
+      hostname: 'masque.example.com',
+      port: 443,
+      username: 'user',
+      password: 'pass',
+      alpn: ['h3'],
+    },
+  ])
+})
+
+test('CustomProvider supports masque key-pair nodes', async (t) => {
+  const provider = new CustomProvider('test', {
+    type: SupportProviderEnum.Custom,
+    nodeList: [
+      {
+        type: NodeTypeEnum.Masque,
+        authMode: 'key-pair',
+        nodeName: 'warp-masque',
+        hostname: 'masque.example.com',
+        port: 443,
+        privateKey: 'private-key',
+        publicKey: 'public-key',
+        ip: '172.16.0.2/32',
+        network: 'h3',
+      },
+    ],
+  })
+
+  t.deepEqual(await provider.getNodeList(), [
+    {
+      type: 'masque',
+      authMode: 'key-pair',
+      nodeName: 'warp-masque',
+      hostname: 'masque.example.com',
+      port: 443,
+      privateKey: 'private-key',
+      publicKey: 'public-key',
+      ip: '172.16.0.2/32',
+      network: 'h3',
+    },
+  ])
+})
+
+test('CustomProvider rejects provider underlyingProxy with MASQUE portHopping', async (t) => {
+  const provider = new CustomProvider('test', {
+    type: SupportProviderEnum.Custom,
+    underlyingProxy: 'upstream',
+    nodeList: [
+      {
+        type: NodeTypeEnum.Masque,
+        authMode: 'basic-auth',
+        nodeName: 'masque-test',
+        hostname: 'masque.example.com',
+        port: 443,
+        portHopping: '1234;5000-6000',
+      },
+    ],
+  })
+
+  const error = await t.throwsAsync(() => provider.getNodeList())
+  t.true(error?.message.includes('节点配置校验失败'))
+})
+
+test('CustomProvider supports TrustTunnel nodes', async (t) => {
+  const provider = new CustomProvider('test', {
+    type: SupportProviderEnum.Custom,
+    nodeList: [
+      {
+        type: NodeTypeEnum.TrustTunnel,
+        nodeName: 'trust-tunnel',
+        hostname: 'trust.example.com',
+        port: 443,
+        username: 'user',
+        password: 'pass',
+        alpn: ['h2'],
+        maxStreams: 3,
+      },
+    ],
+  })
+
+  t.deepEqual(await provider.getNodeList(), [
+    {
+      type: 'trust-tunnel',
+      nodeName: 'trust-tunnel',
+      hostname: 'trust.example.com',
+      port: 443,
+      username: 'user',
+      password: 'pass',
+      alpn: ['h2'],
+      maxStreams: 3,
+    },
+  ])
+})
+
 test('CustomProvider underlying proxy', async (t) => {
   t.deepEqual(
     await new CustomProvider('test', {
@@ -145,4 +260,246 @@ test('CustomProvider with hooks', async (t) => {
     },
   ])
   t.true(afterNodeListResponse.calledOnce)
+})
+
+test('CustomProvider nodeList function receives params', async (t) => {
+  const nodeListFn = sinon.stub().resolves([
+    {
+      type: NodeTypeEnum.Shadowsocks,
+      nodeName: 'test',
+      hostname: 'example.com',
+      port: 443,
+      method: 'chacha20-ietf-poly1305',
+      password: 'password',
+    },
+  ])
+  const provider = new CustomProvider('test', {
+    type: SupportProviderEnum.Custom,
+    nodeList: nodeListFn,
+  })
+
+  const params = { requestId: 'req-1' }
+  await provider.getNodeList(params)
+
+  t.true(nodeListFn.calledOnce)
+  t.deepEqual(nodeListFn.firstCall.args[0], params)
+})
+
+test('CustomProvider returns list from hook when provided', async (t) => {
+  const provider = new CustomProvider('test', {
+    type: SupportProviderEnum.Custom,
+    nodeList: [
+      {
+        type: NodeTypeEnum.Shadowsocks,
+        nodeName: 'test',
+        hostname: 'example.com',
+        port: 443,
+        method: 'chacha20-ietf-poly1305',
+        password: 'password',
+      },
+    ],
+    hooks: {
+      afterNodeListResponse: () =>
+        [
+          {
+            type: NodeTypeEnum.Shadowsocks,
+            nodeName: 'override',
+            hostname: 'override.example.com',
+            port: 443,
+            method: 'chacha20-ietf-poly1305',
+            password: 'password',
+          },
+        ] as any,
+    },
+  })
+
+  t.deepEqual(await provider.getNodeList(), [
+    {
+      type: 'shadowsocks',
+      nodeName: 'override',
+      hostname: 'override.example.com',
+      port: 443,
+      method: 'chacha20-ietf-poly1305',
+      password: 'password',
+    },
+  ])
+})
+
+test('CustomProvider throws for unknown node type', async (t) => {
+  const provider = new CustomProvider('test', {
+    type: SupportProviderEnum.Custom,
+    nodeList: [
+      {
+        type: 'unknown' as NodeTypeEnum,
+        nodeName: 'test',
+      },
+    ] as any,
+  })
+
+  const error = await t.throwsAsync(() => provider.getNodeList())
+  t.true(error?.message.includes('节点配置校验失败'))
+})
+
+test('CustomProvider applies vmess compatibility rules', async (t) => {
+  const provider = new CustomProvider('test', {
+    type: SupportProviderEnum.Custom,
+    nodeList: [
+      {
+        type: NodeTypeEnum.Vmess,
+        nodeName: 'vmess-test',
+        hostname: 'example.com',
+        port: 443,
+        method: 'auto',
+        uuid: '2e1a3b2a-0a6e-4aa6-9b1f-32b3f4cc0c1a',
+        network: 'tcp',
+        host: 'sni.example.com',
+        wsHeaders: {
+          Host: 'ws.example.com',
+        },
+      },
+    ],
+  })
+
+  t.deepEqual(await provider.getNodeList(), [
+    {
+      type: 'vmess',
+      nodeName: 'vmess-test',
+      hostname: 'example.com',
+      port: 443,
+      method: 'auto',
+      uuid: '2e1a3b2a-0a6e-4aa6-9b1f-32b3f4cc0c1a',
+      host: 'sni.example.com',
+      wsHeaders: {
+        Host: 'ws.example.com',
+      },
+      sni: 'sni.example.com',
+      wsOpts: {
+        headers: {
+          Host: 'ws.example.com',
+        },
+        path: '/',
+      },
+      network: 'tcp',
+    },
+  ])
+})
+
+test('CustomProvider accepts and validates Tailscale nodes', async (t) => {
+  const validProvider = new CustomProvider('tailscale-provider', {
+    type: SupportProviderEnum.Custom,
+    nodeList: [
+      {
+        type: NodeTypeEnum.Tailscale,
+        nodeName: 'tailnet',
+        hostname: 'surgio-node',
+        ephemeral: false,
+        routingMark: 0,
+      },
+    ],
+  })
+
+  t.deepEqual(await validProvider.getNodeList(), [
+    {
+      type: NodeTypeEnum.Tailscale,
+      nodeName: 'tailnet',
+      hostname: 'surgio-node',
+      ephemeral: false,
+      routingMark: 0,
+    },
+  ])
+
+  const invalidProvider = new CustomProvider('tailscale-provider', {
+    type: SupportProviderEnum.Custom,
+    nodeList: [
+      {
+        type: NodeTypeEnum.Tailscale,
+        nodeName: 'invalid-tailnet',
+        mtu: 1421,
+      } as any,
+    ],
+  })
+  const error = await t.throwsAsync(() => invalidProvider.getNodeList())
+
+  t.true(error?.message.includes('节点配置校验失败'))
+  t.is((error as any)?.providerName, 'tailscale-provider')
+  t.is((error as any)?.nodeIndex, 0)
+})
+
+test('CustomProvider rejects conflicting vmess ws headers', async (t) => {
+  const provider = new CustomProvider('test', {
+    type: SupportProviderEnum.Custom,
+    nodeList: [
+      {
+        type: NodeTypeEnum.Vmess,
+        nodeName: 'vmess-test',
+        hostname: 'example.com',
+        port: 443,
+        method: 'auto',
+        uuid: '2e1a3b2a-0a6e-4aa6-9b1f-32b3f4cc0c1a',
+        network: 'tcp',
+        wsHeaders: {
+          Host: 'ws.example.com',
+        },
+        wsOpts: {
+          headers: {
+            Host: 'override.example.com',
+          },
+          path: '/ws',
+        },
+      },
+    ],
+  })
+
+  const error = await t.throwsAsync(() => provider.getNodeList())
+  t.true(error?.message.includes('节点配置校验失败'))
+})
+
+test('CustomProvider rejects vmess path on ws network', async (t) => {
+  const provider = new CustomProvider('test', {
+    type: SupportProviderEnum.Custom,
+    nodeList: [
+      {
+        type: NodeTypeEnum.Vmess,
+        nodeName: 'vmess-test',
+        hostname: 'example.com',
+        port: 443,
+        method: 'auto',
+        uuid: '2e1a3b2a-0a6e-4aa6-9b1f-32b3f4cc0c1a',
+        network: 'ws',
+        path: '/legacy',
+        wsOpts: {
+          path: '/ws',
+        },
+      },
+    ],
+  })
+
+  const error = await t.throwsAsync(() => provider.getNodeList())
+  t.true(error?.message.includes('节点配置校验失败'))
+})
+
+test('CustomProvider rejects vless path on xhttp network', async (t) => {
+  const provider = new CustomProvider('test', {
+    type: SupportProviderEnum.Custom,
+    nodeList: [
+      {
+        type: NodeTypeEnum.Vless,
+        nodeName: 'vless-test',
+        hostname: 'example.com',
+        port: 443,
+        method: 'none',
+        uuid: '2e1a3b2a-0a6e-4aa6-9b1f-32b3f4cc0c1a',
+        network: 'xhttp',
+        path: '/legacy',
+        encryption: 'none',
+        tls: true,
+        xhttpOpts: {
+          path: '/xhttp',
+        },
+      } as any,
+    ],
+  })
+
+  const error = await t.throwsAsync(() => provider.getNodeList())
+  t.true(error?.message.includes('节点配置校验失败'))
 })

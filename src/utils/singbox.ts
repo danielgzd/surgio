@@ -12,12 +12,7 @@ import { MultiplexValidator, TlsNodeConfigValidator } from '../validators'
 
 import { stringifySip003Options } from './ss'
 
-import {
-  checkNotNullish,
-  getHostnameFromHost,
-  getPortFromHost,
-  pickAndFormatKeys,
-} from './'
+import { checkNotNullish, pickAndFormatKeys } from './'
 
 const logger = createLogger({ service: 'surgio:utils:singbox' })
 
@@ -30,6 +25,21 @@ export const getSingboxNodes = function (
     .filter((item): item is Record<string, any> => checkNotNullish(item))
 }
 
+/**
+ * sing-box 将 Tailscale 等节点视为 endpoint 而非 outbound，需要单独放入配置的
+ * `endpoints` 字段中。
+ *
+ * @see https://sing-box.sagernet.org/configuration/endpoint/tailscale
+ */
+export const getSingboxEndpoints = function (
+  list: ReadonlyArray<PossibleNodeConfigType>,
+  filter?: NodeFilterType | SortedNodeFilterType,
+) {
+  return applyFilter(list, filter)
+    .flatMap(endpointMapper)
+    .filter((item): item is Record<string, any> => checkNotNullish(item))
+}
+
 export const getSingboxNodeNames = function (
   list: ReadonlyArray<PossibleNodeConfigType>,
   filter?: NodeFilterType | SortedNodeFilterType,
@@ -39,7 +49,10 @@ export const getSingboxNodeNames = function (
     throw new Error(ERR_INVALID_FILTER)
   }
 
-  return getSingboxNodes(list, filter).map((item) => item.tag)
+  return [
+    ...getSingboxNodes(list, filter),
+    ...getSingboxEndpoints(list, filter),
+  ].map((item) => item.tag)
 }
 
 const typeMap = {
@@ -53,12 +66,17 @@ const typeMap = {
   [NodeTypeEnum.Tuic]: 'tuic',
   [NodeTypeEnum.Wireguard]: 'wireguard',
   [NodeTypeEnum.Hysteria2]: 'hysteria2',
+  [NodeTypeEnum.AnyTLS]: 'anytls',
 } as const
 
 /**
  * @see https://sing-box.sagernet.org/configuration/outbound/
  */
 function nodeListMapper(nodeConfig: PossibleNodeConfigType) {
+  // Tailscale 以 endpoint 的形式生成，由 getSingboxEndpoints 处理，不应出现在 outbounds 中
+  if (nodeConfig.type === NodeTypeEnum.Tailscale) {
+    return null
+  }
   if (nodeConfig.type in typeMap === false) {
     logger.warn(
       `不支持为 sing-box 生成 ${nodeConfig.type} 的节点，节点 ${nodeConfig.nodeName} 会被忽略`,
@@ -262,6 +280,32 @@ function nodeListMapper(nodeConfig: PossibleNodeConfigType) {
         password: nodeConfig.obfsPassword,
       }
       node.password = nodeConfig.password
+
+      if (nodeConfig.portHopping) {
+        const ports = nodeConfig.portHopping
+          .split(',')
+          .filter((portConfig) => portConfig.includes('-'))
+          .map((portConfig) => portConfig.replace(/-/g, ':'))
+        node.server_ports = ports
+      }
+
+      if (nodeConfig.portHoppingInterval) {
+        node.hop_interval = `${nodeConfig.portHoppingInterval}s`
+      }
+
+      break
+
+    case NodeTypeEnum.AnyTLS:
+      node.password = nodeConfig.password
+      if (nodeConfig.idleSessionCheckInterval !== undefined) {
+        node.idle_session_check_interval = nodeConfig.idleSessionCheckInterval
+      }
+      if (nodeConfig.idleSessionTimeout !== undefined) {
+        node.idle_session_timeout = nodeConfig.idleSessionTimeout
+      }
+      if (nodeConfig.minIdleSessions !== undefined) {
+        node.min_idle_session = nodeConfig.minIdleSessions
+      }
       break
 
     case NodeTypeEnum.Wireguard:
@@ -269,12 +313,12 @@ function nodeListMapper(nodeConfig: PossibleNodeConfigType) {
       //   system_interface: false,
       //   gso: false,
       //   interface_name: 'wg0',
-      //   local_address: ['10.0.0.2/32'],
+      //   address: ['10.0.0.2/32'],
       //   private_key: 'YNXtAzepDqRv9H52osJVDQnznT5AM11eCK3ESpwSt04=',
       //   peers: [
       //     {
-      //       server: '127.0.0.1',
-      //       server_port: 1080,
+      //       address: '127.0.0.1',
+      //       port: 1080,
       //       public_key: 'Z1XXLsKYkYxuiYjJIkRvtIKFepCYHTgON+GwPq7SOV4=',
       //       pre_shared_key: '31aIhAPwktDGpH4JDhA8GNvjFXEf/a6+UaQRyOAiyfM=',
       //       allowed_ips: ['0.0.0.0/0'],
@@ -287,19 +331,22 @@ function nodeListMapper(nodeConfig: PossibleNodeConfigType) {
       //   workers: 4,
       //   mtu: 1408,
       // }
-      node.local_address = [`${nodeConfig.selfIp}/32`]
+      node.address = [`${nodeConfig.selfIp}/32`]
       if (nodeConfig.selfIpV6) {
-        node.local_address.push(`${nodeConfig.selfIpV6}/128`)
+        node.address.push(`${nodeConfig.selfIpV6}/128`)
       }
       node.private_key = nodeConfig.privateKey
-      node.peers = nodeConfig.peers.map((peer) => ({
-        server: getHostnameFromHost(peer.endpoint),
-        server_port: getPortFromHost(peer.endpoint),
-        public_key: peer.publicKey,
-        pre_shared_key: peer.presharedKey,
-        allowed_ips: peer.allowedIps?.split(',').map((ip) => ip.trim()),
-        reserved: peer.reservedBits,
-      }))
+      node.peers = nodeConfig.peers.map((peer) => {
+        const endpoint = new URL(`http://${peer.endpoint}`)
+        return {
+          address: endpoint.hostname,
+          port: Number(endpoint.port),
+          public_key: peer.publicKey,
+          pre_shared_key: peer.presharedKey,
+          allowed_ips: peer.allowedIps?.split(',').map((ip) => ip.trim()),
+          reserved: peer.reservedBits,
+        }
+      })
       node.mtu = nodeConfig.mtu
       break
   }
@@ -378,6 +425,35 @@ function nodeListMapper(nodeConfig: PossibleNodeConfigType) {
       },
     }),
   ]
+}
+
+/**
+ * @see https://sing-box.sagernet.org/configuration/endpoint/tailscale
+ */
+function endpointMapper(nodeConfig: PossibleNodeConfigType) {
+  if (nodeConfig.type !== NodeTypeEnum.Tailscale) {
+    return null
+  }
+
+  const endpoint: Record<string, any> = {
+    type: 'tailscale',
+    tag: nodeConfig.nodeName,
+    auth_key: nodeConfig.authKey,
+    control_url: nodeConfig.controlUrl,
+    ephemeral: nodeConfig.ephemeral,
+    hostname: nodeConfig.hostname,
+    accept_routes: nodeConfig.acceptRoutes,
+    exit_node: nodeConfig.exitNode,
+    exit_node_allow_lan_access: nodeConfig.exitNodeAllowLanAccess,
+    state_directory: nodeConfig.stateDir,
+    routing_mark: nodeConfig.routingMark,
+  }
+
+  if (nodeConfig.underlyingProxy) {
+    endpoint.detour = nodeConfig.underlyingProxy
+  }
+
+  return prune(endpoint)
 }
 
 function normalizeHeaders(headers: Record<string, string> | undefined) {

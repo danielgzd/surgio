@@ -49,8 +49,8 @@ module.exports = defineCustomProvider(async function () {
 
 |                       类型                       | 描述                                       | 备注                                                                                                                         |
 | :----------------------------------------------: | ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
-| `custom` <Badge text="推荐" vertical="middle" /> | 自己维护的节点                             | 支持 Shadowsocks, Shadowsocksr, Snell, HTTPS, HTTP, Vmess, Vless, Hysteria 2, Socks5, Tuic, Trojan, Wireguard                    |
-| `clash` <Badge text="推荐" vertical="middle" />  | Clash 配置                                 | 支持 Shadowsocks, Shadowsocksr, Snell, HTTPS, HTTP, Vmess, Vless, Hysteria 2, Socks5, Tuic, Trojan, Wireguard                  |
+| `custom` <Badge text="推荐" vertical="middle" /> | 自己维护的节点                             | 支持 Shadowsocks, Shadowsocksr, Snell, HTTPS, HTTP, Vmess, Vless, Hysteria 2, AnyTLS, Socks5, Tuic, Trojan, Wireguard                    |
+| `clash` <Badge text="推荐" vertical="middle" />  | Clash 配置                                 | 支持 Shadowsocks, Shadowsocksr, Snell, HTTPS, HTTP, Vmess, Vless, Hysteria 2, AnyTLS, Socks5, Tuic, Trojan, Wireguard                  |
 |                     `trojan`                     | Trojan 订阅                                | Shadowrocket 支持的 Trojan 订阅格式                                                                                          |
 |           `shadowsocks_json_subscribe`           | 针对 Windows 客户端的 Shadowsocks 订阅地址 | 通常命名为 _gui-config.json_                                                                                                 |
 |             `shadowsocks_subscribe`              | 通用的 Shadowsocks 订阅地址                |                                                                                                                              |
@@ -67,20 +67,20 @@ module.exports = defineCustomProvider(async function () {
 
 ### url
 
-- 类型: `string`
+- 类型：`string`
 - <Badge text="必须" vertical="middle" />
 
 ### udpRelay
 
-- 类型: `boolean`
-- 默认值: `false`
+- 类型：`boolean`
+- 默认值：`false`
 
 我们发现部分机场的 Clash 订阅并没有设定 `udp`，所以你可以通过配置这个属性来强制设定节点的 UDP 转发支持情况。如果订阅节点中包含 `udp` 字段，则该配置无效。
 
 ### tls13
 
-- 类型: `boolean`
-- 默认值: `false`
+- 类型：`boolean`
+- 默认值：`false`
 
 强制开启节点的 TLS 1.3。
 
@@ -159,7 +159,7 @@ module.exports = defineCustomProvider({
   tfo: false, // TCP Fast Open
   tls13: false, // TLS 1.3，适用于 v2ray-plugin
   mux: false, // 目前仅 Clash + Shadowsocks + v2ray-plugin 可用
-  multiplex: {}, // 多路复用，可选，见本页面的 `multiplex多路复用` 部分
+  multiplex: {}, // 多路复用，可选，见本页面的 `multiplex 多路复用` 部分
 }
 ```
 
@@ -189,7 +189,7 @@ module.exports = defineCustomProvider({
 
 ### Vmess
 
-从 v3.5.0 开始 Surgio 支持了更多 Vmess 协议。为了更好地区分不同协议的参数，原有的 `host`, `path`, `wsHeaders` 将会在后面的版本中废弃，请使用下面列出的新属性。 Surgio 会忽略代理客户端不支持的协议类型。
+从 v3.5.0 开始 Surgio 支持了更多 Vmess 协议。为了更好地区分不同协议的参数，原有的 `host`, `path`, `wsHeaders` 将会在后面的版本中废弃，请使用下面列出的新属性。Surgio 会忽略代理客户端不支持的协议类型。
 
 #### `network: 'tcp'`
 
@@ -229,7 +229,7 @@ module.exports = defineCustomProvider({
       'x-key': 'x-value',
     },
   },
-  multiplex: {}, // 多路复用，可选，见本页面的 `multiplex多路复用` 部分
+  multiplex: {}, // 多路复用，可选，见本页面的 `multiplex 多路复用` 部分
 }
 ```
 
@@ -253,7 +253,7 @@ module.exports = defineCustomProvider({
       Host: 'www.example.com',
     },
   },
-  multiplex: {}, // 多路复用，可选，见本页面的 `multiplex多路复用` 部分
+  multiplex: {}, // 多路复用，可选，见本页面的 `multiplex 多路复用` 部分
 }
 ```
 
@@ -274,7 +274,7 @@ module.exports = defineCustomProvider({
   grpcOpts: {
     serviceName: 'example',
   },
-  multiplex: {}, // 多路复用，可选，见本页面的 `multiplex多路复用` 部分
+  multiplex: {}, // 多路复用，可选，见本页面的 `multiplex 多路复用` 部分
 }
 ```
 
@@ -361,6 +361,7 @@ Vless 节点遵循和 Vmess 类似的配置规则，除了以下几个差异：
        publicKey: 'public-key',
        shortId: 'short-id', // 可选
      },
+     encryption: "", // 可选，参考 https://wiki.metacubex.one/config/proxies/vless/#encryption
    }
    ```
 4. `method` 有且仅有 `none` 一个选项
@@ -433,7 +434,7 @@ Vless 节点遵循和 Vmess 类似的配置规则，除了以下几个差异：
   network: 'ws', // 可不填
   wsPath: '/', // 可选
   wsHeaders: {}, // 可选
-  multiplex: {}, // 多路复用，可选，见本页面的 `multiplex多路复用` 部分
+  multiplex: {}, // 多路复用，可选，见本页面的 `multiplex 多路复用` 部分
 }
 ```
 
@@ -449,14 +450,14 @@ Vless 节点遵循和 Vmess 类似的配置规则，除了以下几个差异：
   password: 'password', // 可选
   tls: true, // 可选
   skipCertVerify: true, // 可选
-  udpRelay: false, // 可选, 仅 Clash 支持
-  sni: 'example.com', // 可选, 仅 Surge 支持
-  tfo: true, // 可选, 仅 Surge 支持
-  clientCert: 'item', // 可选, 仅 Surge 支持
+  udpRelay: false, // 可选，仅 Clash 支持
+  sni: 'example.com', // 可选，仅 Surge 支持
+  tfo: true, // 可选，仅 Surge 支持
+  clientCert: 'item', // 可选，仅 Surge 支持
 }
 ```
 
-`clientCert` 仅 Surge 支持, 参考 [文档](https://github.com/Blankwonder/Surge-Manual/blob/master/release-note/surge-mac.md#version-250) 进行配置。
+`clientCert` 仅 Surge 支持，参考 [文档](https://github.com/Blankwonder/Surge-Manual/blob/master/release-note/surge-mac.md#version-250) 进行配置。
 
 ### Wireguard
 
@@ -486,6 +487,75 @@ Vless 节点遵循和 Vmess 类似的配置规则，除了以下几个差异：
 }
 ```
 
+### Tailscale
+
+> <Badge text="Surgio v3.17.0" vertical="middle" />
+
+Tailscale 节点支持输出为 Stash、Mihomo（`clashCore: 'clash.meta'`）、Surge 和 sing-box。原版 Clash 不支持该节点类型。
+
+```json5
+{
+  type: 'tailscale',
+  nodeName: 'Tailnet',
+  authKey: 'tskey-auth-example', // Surge 必填；Stash、Mihomo、sing-box 可选
+  hostname: 'surgio-node',
+  controlUrl: 'https://controlplane.tailscale.com',
+  exitNode: '100.64.0.1',
+  ephemeral: false, // Stash、Mihomo、sing-box
+  stateDir: './tailscale', // Mihomo、sing-box
+  udpRelay: true, // Mihomo，输出为 udp
+  acceptRoutes: true, // Mihomo、sing-box
+  exitNodeAllowLanAccess: false, // Mihomo、sing-box
+  routingMark: 0, // Mihomo、sing-box
+  interfaceName: 'WLAN', // Mihomo
+  ipVersion: 'ipv4-prefer', // Mihomo
+  derpOnly: false, // Surge
+  idleKeepalive: 600, // Surge
+  preferIpv6: false, // Surge
+  dnsServers: ['100.100.100.100'], // Surge
+  mtu: 1280, // Surge，范围 576～1420
+  underlyingProxy: 'DIRECT', // Mihomo、Surge、sing-box
+  testUrl: 'http://100.64.0.1/', // Surge，仅支持 HTTP URL
+  testTimeout: 5, // Surge
+  ecn: false, // Surge
+  noErrorAlert: false, // Surge
+}
+```
+
+各字段的含义以及被哪些客户端支持如下（`✓` 表示支持，`—` 表示该客户端会忽略该字段）：
+
+| Surgio 字段 | 说明 | Stash | Mihomo | Surge | sing-box |
+| --- | --- | :---: | :---: | :---: | :---: |
+| `nodeName` | 节点名称 | ✓ | ✓ | ✓ | ✓ |
+| `authKey` | Tailscale 鉴权密钥（Auth Key），用于自动登录并将设备加入 tailnet | ✓ | ✓ | ✓（必填） | ✓ |
+| `hostname` | 节点在 tailnet 中显示的主机名，默认使用系统主机名 | ✓ | ✓ | ✓ | ✓ |
+| `controlUrl` | 自定义控制服务器地址，默认 `https://controlplane.tailscale.com`，可指向 Headscale 等自建服务 | ✓ | ✓ | ✓ | ✓ |
+| `exitNode` | 用作出口节点（exit node）的节点名称或 IP 地址 | ✓ | ✓ | ✓ | ✓ |
+| `ephemeral` | 是否以临时节点（ephemeral node）身份注册，离线后自动从 tailnet 移除 | ✓ | ✓ | — | ✓ |
+| `stateDir` | 存放 Tailscale 状态数据的目录 | — | ✓ | — | ✓ |
+| `acceptRoutes` | 是否接受其它节点通告的子网路由（subnet routes） | — | ✓ | — | ✓ |
+| `exitNodeAllowLanAccess` | 使用出口节点时，是否允许直接访问本地局域网而不经由出口节点 | — | ✓ | — | ✓ |
+| `routingMark` | 为 Tailscale 流量设置的路由标记（fwmark），仅在 Linux 下有效 | — | ✓ | — | ✓ |
+| `underlyingProxy` | 底层（前置）代理，连接将通过该代理建立（Mihomo 输出为 `dialer-proxy`，Surge 输出为 `underlying-proxy`，sing-box 输出为 `detour`） | — | ✓ | ✓ | ✓ |
+| `udpRelay` | 是否启用 UDP 转发（Mihomo 输出为 `udp`） | — | ✓ | — | — |
+| `interfaceName` | 绑定的网络接口名称 | — | ✓ | — | — |
+| `ipVersion` | IP 版本偏好（`dual`/`ipv4`/`ipv6`/`ipv4-prefer`/`ipv6-prefer`） | — | ✓ | — | — |
+| `derpOnly` | 是否强制仅通过 DERP 中继服务器连接，禁用点对点直连 | — | — | ✓ | — |
+| `idleKeepalive` | 空闲连接的保活间隔，单位为秒 | — | — | ✓ | — |
+| `preferIpv6` | 是否优先使用 IPv6 | — | — | ✓ | — |
+| `dnsServers` | 自定义 DNS 服务器列表 | — | — | ✓ | — |
+| `mtu` | 网络接口的 MTU（最大传输单元），取值范围 576～1420 | — | — | ✓ | — |
+| `testUrl` | 节点可用性测试所使用的 URL（Surge 仅支持 HTTP URL） | — | — | ✓ | — |
+| `testTimeout` | 节点测试超时时间（秒），[公共属性](#nodeconfig-公共属性) | — | — | ✓ | — |
+| `ecn` | 是否启用 ECN，[公共属性](#nodeconfig-公共属性) | — | — | ✓ | — |
+| `noErrorAlert` | 是否在连接出错时不弹出提示 | — | — | ✓ | — |
+
+Stash 和 Mihomo 可以省略 `authKey`，然后使用客户端提供的交互认证流程；Surge 不支持交互认证，因此生成 Surge 配置时缺少 `authKey` 会直接报错。
+
+Surgio 不会为 `exitNode` 注入统一默认值：Stash 省略时会尝试自动选择可用 exit node，Mihomo 省略时不会配置 exit node，Surge 省略时默认为 `none`。需要跨客户端一致行为时请显式设置该字段，并注意各客户端支持的特殊值不同。
+
+sing-box 将 Tailscale 视为 [endpoint](https://sing-box.sagernet.org/configuration/endpoint/tailscale) 而非 outbound，需要使用 `getSingboxEndpoints` 生成并放入配置的 `endpoints` 字段，详见 [sing-box 客户端文档](/guide/client/sing-box.md#tailscale-等-endpoint-节点)。
+
 ### Tuic
 
 #### V5
@@ -504,7 +574,7 @@ Vless 节点遵循和 Vmess 类似的配置规则，除了以下几个差异：
   sni: 'sni.example.com', // 可选
   skipCertVerify: true, // 可选
   alpn: ['h3'], // 可选，Stash 不支持空值
-  udpRelay: false, // 可选, 仅 Clash 支持更改，Surge 默认开启
+  udpRelay: false, // 可选，仅 Clash 支持更改，Surge 默认开启
 }
 ```
 
@@ -520,7 +590,7 @@ Vless 节点遵循和 Vmess 类似的配置规则，除了以下几个差异：
   sni: 'sni.example.com', // 可选
   skipCertVerify: true, // 可选
   alpn: ['h3'], // 可选，Stash 不支持空值
-  udpRelay: false, // 可选, 仅 Clash 支持更改，Surge 默认开启
+  udpRelay: false, // 可选，仅 Clash 支持更改，Surge 默认开启
 }
 ```
 
@@ -528,9 +598,11 @@ Vless 节点遵循和 Vmess 类似的配置规则，除了以下几个差异：
 
 > <Badge text="Surgio v3.1.0" vertical="middle" />
 
-Surgio 只支持 Hysteria v2 协议。请注意，Hysteria v2 协议和 v1 协议完全不兼容。当前可以为 Clash 和 Surge 生成此节点。
+Surgio 只支持 Hysteria v2 协议。请注意，Hysteria v2 协议和 v1 协议完全不兼容。当前可以为 Clash、Surge、sing-box 和 Loon 生成此节点。
 
 Clash 需要在配置中开启 `clashConfig.enableHysteria2`。
+
+Loon 支持输出 `sni`、`skipCertVerify`、`tfo`、`obfsPassword` 和 `udpRelay`。Loon 文档未支持的带宽、端口跳跃和 `alpn` 参数不会输出。
 
 ```json5
 {
@@ -539,10 +611,163 @@ Clash 需要在配置中开启 `clashConfig.enableHysteria2`。
   hostname: 'hysteria.example.com',
   port: 443,
   password: 'password',
-  downloadBandwidth: 40, // 可选, Mbps
-  uploadBandwidth: 40, // 可选, Mbps
+  downloadBandwidth: 40, // 可选，Mbps
+  uploadBandwidth: 40, // 可选，Mbps
+  obfs: 'salamander', // 可选
+  obfsPassword: 'obfs-password', // 可选，Loon 输出为 salamander-password
   sni: 'sni.example.com', // 可选
   skipCertVerify: true, // 可选
+  tfo: true, // 可选，Loon 输出为 fast-open=true
+  udpRelay: true, // 可选，Loon 输出为 udp=true
+}
+```
+
+### MASQUE
+
+> <Badge text="Surgio v3.19.0" vertical="middle" />
+
+MASQUE 节点必须通过 `authMode` 指明认证模式。Surge 使用标准的 HTTP Basic Auth 模式；Stash 和 Mihomo（`clashCore: 'clash.meta'`）使用 Cloudflare WARP 风格的密钥对模式。两种认证模式无法自动转换。
+
+#### Surge Basic Auth
+
+Surge iOS 5.22.0+ 和 Surge Mac 6.9.0+ 支持该模式。
+
+```json5
+{
+  type: 'masque',
+  authMode: 'basic-auth',
+  nodeName: 'MASQUE',
+  hostname: 'masque.example.com',
+  port: 443,
+  username: 'user', // 可选；username 和 password 均省略时不发送认证信息
+  password: 'pass', // 可选
+  alpn: ['h3'], // 可选，Surge 默认使用 h3
+  sni: 'sni.example.com', // 可选
+  skipCertVerify: false, // 可选
+  ecn: true, // 可选
+  portHopping: '1234;5000-6000', // 可选
+  portHoppingInterval: 30, // 可选，单位为秒
+}
+```
+
+`portHopping` 可以单独使用，但不能与 `underlyingProxy` 同时配置。MASQUE 基于 QUIC，因此不支持 Shadow TLS。
+
+#### Stash / Mihomo Key Pair
+
+Stash iOS/tvOS 3.6+、Stash macOS 4.4+ 和 Mihomo 1.19.20+ 支持该模式。Mihomo 的 HTTP/2 和 `bbrProfile` 需要 1.19.24+，`h3-l4proxy` 和 `handshakeTimeout` 需要 1.19.28+。
+
+```json5
+{
+  type: 'masque',
+  authMode: 'key-pair',
+  nodeName: 'WARP MASQUE',
+  hostname: '162.159.198.1',
+  port: 443,
+  privateKey: 'BASE64_ENCODED_PRIVATE_KEY',
+  publicKey: 'BASE64_ENCODED_PUBLIC_KEY',
+  ip: '172.16.0.2/32', // ip 和 ipv6 至少配置一个
+  ipv6: '2606:4700:110:84c0::2/128', // 可选
+  dnsServers: ['1.1.1.1', '2606:4700:4700::1111'], // 可选
+  network: 'h3', // 可选：h3、h2、h3-l4proxy；默认 h3
+  sni: 'consumer-masque.cloudflareclient.com', // 可选
+  mtu: 1280, // 可选，范围 1280～1500
+
+  // Stash
+  connectUri: 'https://cloudflareaccess.com', // 可选
+  keepalive: 30, // 可选，单位为秒
+
+  // Mihomo
+  udpRelay: true, // 可选
+  remoteDnsResolve: true, // 可选
+  congestionController: 'bbr', // 可选
+  bbrProfile: 'standard', // 可选：standard、conservative、aggressive
+  handshakeTimeout: 30, // 可选，单位为秒
+  underlyingProxy: 'upstream', // 可选，输出为 dialer-proxy
+}
+```
+
+内部的 `network: 'h3'` 在 Stash 中输出为 `h3`，在 Mihomo 中输出为 `quic`。`h3-l4proxy` 仅 Mihomo 支持，并且不能启用 UDP。原版 Clash 不支持 MASQUE 节点。
+
+从 Clash 或 Stash 订阅读取 `type: masque` 节点时，Surgio 会自动设置 `authMode: 'key-pair'`，并将 Mihomo 的 `network: quic` 归一化为 `h3`。
+
+### TrustTunnel
+
+> <Badge text="Surgio v3.19.0" vertical="middle" />
+
+TrustTunnel 使用用户名和密码认证。Surgio 使用公共类型 `trust-tunnel`；生成 Stash 或 Mihomo 配置时会输出为 `trusttunnel`。
+
+```json5
+{
+  type: 'trust-tunnel',
+  nodeName: 'TrustTunnel',
+  hostname: 'trust.example.com',
+  port: 443,
+  username: 'user',
+  password: 'pass',
+  quic: false, // 可选；false 为 HTTP/2，true 为 HTTP/3
+  sni: 'sni.example.com', // 可选
+  alpn: ['h2'], // 可选；HTTP/2 必须包含 h2，QUIC 必须包含 h3
+  skipCertVerify: false, // 可选
+  serverCertFingerprintSha256: 'SHA256_HEX', // 可选
+  underlyingProxy: 'upstream', // 可选
+
+  // Surge
+  headers: { // 可选，输出为分号分隔的握手请求头
+    'X-Client': 'Surge',
+    'X-Token': 'token',
+  },
+  maxStreams: 3, // 可选；Surge 和 Mihomo
+
+  // Stash QUIC
+  portHopping: '443,8443,5000-6000', // 可选
+  portHoppingInterval: 30, // 可选，单位为秒
+
+  // Mihomo
+  udpRelay: true, // 可选
+  clientFingerprint: 'chrome', // 可选
+  healthCheck: true, // 可选
+  nameCertVerify: 'verify.example.com', // 可选
+  congestionController: 'bbr', // 可选，仅 QUIC
+  bbrProfile: 'standard', // 可选：standard、conservative、aggressive
+  maxConnections: 8, // 可选，与 maxStreams 冲突
+  minStreams: 5, // 可选，与 maxStreams 冲突
+}
+```
+
+Surge 当前仅支持 HTTP/2/TCP。`quic: true` 的节点不会被降级，而是记录警告并从 Surge 输出中省略。Shadow TLS 仅能用于 Surge HTTP/2 模式；Stash 和 Mihomo 不支持该组合。
+
+Stash 和 Mihomo 默认使用 HTTP/2，`quic: true` 时切换到 HTTP/3。Stash 使用 `server-cert-fingerprint`，并仅在 QUIC 模式输出 `ports` 与 `hop-interval`；Mihomo 使用 `fingerprint`，并支持 UDP、健康检查、拥塞控制和连接池字段。原版 Clash 不支持 TrustTunnel。
+
+从 Clash 或 Stash 订阅读取 `type: trusttunnel` 节点时，Surgio 会归一化为 `type: 'trust-tunnel'`，并将 `server-cert-fingerprint` 或 `fingerprint` 统一映射为 `serverCertFingerprintSha256`。
+
+版本要求：Surge Mac 6.4.4+；`headers` 和 `maxStreams` 需要 Surge Mac 6.6.0+，自定义 ALPN 需要 6.7.0+。Stash iOS 3.4.0+、macOS 4.2.0+。Mihomo 1.19.21+；连接池字段需要 1.19.23+，`bbrProfile` 需要 1.19.24+。Stash tvOS 和 Surge iOS 的官方文档尚未给出可靠的最低版本。
+
+### AnyTLS
+
+> <Badge text="Surgio v3.13.0" vertical="middle" />
+
+当前支持为 Clash、Surge、sing-box、Quantumult X 和 Loon 生成 AnyTLS 节点。Loon 需要 Build 945 或更高版本。
+
+```json5
+{
+  type: 'anytls',
+  nodeName: 'AnyTLS',
+  hostname: 'anytls.example.com',
+  port: 443,
+  password: 'password',
+  udpRelay: false, // 可选
+  blockQuic: 'off', // 可选，Loon 输出为 block-quic=false
+  sni: 'sni.example.com', // 可选
+  realityOpts: {
+    publicKey: 'public-key',
+    shortId: 'short-id', // 可选
+  }, // 可选，仅 Quantumult X Reality TLS 输出使用
+  alpn: ['h2', 'http/1.1'], // 可选
+  skipCertVerify: false, // 可选
+  idleSessionCheckInterval: 0, // 可选
+  idleSessionTimeout: 0, // 可选
+  minIdleSessions: 0, // 可选
+  reuse: true, // 可选，仅 Surge 输出生效
 }
 ```
 
@@ -563,13 +788,13 @@ module.exports = {
 
 ### url
 
-- 类型: `string`
+- 类型：`string`
 - <Badge text="必须" vertical="middle" />
 
 ### udpRelay
 
-- 类型: `boolean`
-- 默认值: `false`
+- 类型：`boolean`
+- 默认值：`false`
 
 你可以通过配置这个属性来强制设定节点的 UDP 转发支持情况。
 
@@ -585,7 +810,7 @@ module.exports = {
 
 ### url
 
-- 类型: `string`
+- 类型：`string`
 - <Badge text="必须" vertical="middle" />
 
 若机场没有提供这种订阅地址，推荐使用 Fndroid 的 [接口](https://github.com/Fndroid/jsbox_script/wiki/%E5%BC%80%E6%94%BE%E6%8E%A5%E5%8F%A3%E4%BD%BF%E7%94%A8%E5%8F%8A%E8%AF%B4%E6%98%8E#surge%E6%89%98%E7%AE%A1%E8%BD%AC%E6%8D%A2shadowsockswindows%E9%85%8D%E7%BD%AE) 进行转换。
@@ -596,8 +821,8 @@ module.exports = {
 
 ### udpRelay
 
-- 类型: `boolean`
-- 默认值: `false`
+- 类型：`boolean`
+- 默认值：`false`
 
 由于这种订阅协议不支持定义 UDP 转发的支持情况，所以单独出来进行配置。UDP 转发可以应用在 Surge 中。
 
@@ -618,7 +843,7 @@ module.exports = {
 
 ### url
 
-- 类型: `string`
+- 类型：`string`
 - <Badge text="必须" vertical="middle" />
 
 :::warning 注意
@@ -627,8 +852,8 @@ module.exports = {
 
 ### udpRelay
 
-- 类型: `boolean`
-- 默认值: `false`
+- 类型：`boolean`
+- 默认值：`false`
 
 由于这种订阅协议不支持定义 UDP 转发的支持情况，所以单独出来进行配置。UDP 转发可以应用在 Surge 中。
 
@@ -643,7 +868,7 @@ module.exports = {
 
 ### url
 
-- 类型: `string`
+- 类型：`string`
 - <Badge text="必须" vertical="middle" />
 
 ## V2rayn 订阅
@@ -657,7 +882,7 @@ module.exports = {
 
 ### url
 
-- 类型: `string`
+- 类型：`string`
 - <Badge text="必须" vertical="middle" />
 
 :::warning 注意
@@ -668,29 +893,29 @@ module.exports = {
 
 ### compatibleMode
 
-- 类型: `boolean`
-- 默认值: `false`
+- 类型：`boolean`
+- 默认值：`false`
 
 部分机场提供的订阅地址不符合标准，提供一个兼容模式进行解析。
 
 ### udpRelay
 
-- 类型: `boolean`
-- 默认值: `false`
+- 类型：`boolean`
+- 默认值：`false`
 
 由于这种订阅协议不支持定义 UDP 转发的支持情况，所以单独出来进行配置。
 
 ### skipCertVerify
 
-- 类型: `boolean`
-- 默认值: `false`
+- 类型：`boolean`
+- 默认值：`false`
 
 由于这种订阅协议不支持定义跳过证书验证，所以单独出来进行配置。
 
 ### tls13
 
-- 类型: `boolean`
-- 默认值: `false`
+- 类型：`boolean`
+- 默认值：`false`
 
 强制开启节点的 TLS 1.3。
 
@@ -709,20 +934,20 @@ module.exports = {
 
 ### url
 
-- 类型: `string`
+- 类型：`string`
 - <Badge text="必须" vertical="middle" />
 
 ### udpRelay
 
-- 类型: `boolean`
-- 默认值: `false`
+- 类型：`boolean`
+- 默认值：`false`
 
 强制开启节点的 UDP 转发。
 
 ### tls13
 
-- 类型: `boolean`
-- 默认值: `false`
+- 类型：`boolean`
+- 默认值：`false`
 
 强制开启节点的 TLS 1.3。
 
@@ -735,8 +960,8 @@ module.exports = {
 
 ### nodeConfig.enable
 
-- 类型: `boolean`
-- 默认值: `true`
+- 类型：`boolean`
+- 默认值：`true`
 
 单独关闭某个节点输出到配置中。若没有 `enable` 属性则默认打开。
 
@@ -754,70 +979,84 @@ module.exports = {
 
 ### nodeConfig.tfo
 
-- 类型: `boolean`
-- 默认值: `false`
+- 类型：`boolean`
+- 默认值：`false`
 
 是否为该节点开启 TFO（TCP Fast Open）。
 
 ### nodeConfig.mptcp
 
-- 类型: `boolean`
-- 默认值: `false`
+- 类型：`boolean`
+- 默认值：`false`
 
 是否为该节点开启 Multipath TCP。目前仅 Surge 支持这一特性。
 
 ### nodeConfig.shadowTls
 
-- 类型: `object`
-- 默认值: `undefined`
+- 类型：`object`
+- 默认值：`undefined`
 
 目前仅 Surge 和 Stash 支持这一特性。
 
 ### nodeConfig.shadowTls.password
 
-- 类型: `string`
+- 类型：`string`
 - <Badge text="必须" vertical="middle" />
 
 ### nodeConfig.shadowTls.sni
 
-- 类型: `string`
+- 类型：`string`
 - <Badge text="必须" vertical="middle" />
 
 ### nodeConfig.shadowTls.version
 
-- 类型: `number`
-- 默认值: `undefined`
+- 类型：`number`
+- 默认值：`undefined`
 
 ### nodeConfig.tls13
 
-- 类型: `boolean`
-- 默认值: `false`
+- 类型：`boolean`
+- 默认值：`false`
 
 为 TLS 节点开启 TLS 1.3 支持。
 
 :::warning 注意
 1. TLS 1.3 需要服务端支持；
-2. 支持 TLS 的节点类型有 Shadowsocks with v2ray-plugin(tls), Vmess(tls), HTTPS；
+2. 支持 TLS 的节点类型有 Shadowsocks with v2ray-plugin(tls), Vmess(tls), HTTPS, AnyTLS, TrustTunnel；
 :::
 
 ### nodeConfig.skipCertVerify
 
-- 类型: `boolean`
-- 默认值: `false`
+- 类型：`boolean`
+- 默认值：`false`
 
 关闭 TLS 节点的证书检查。
 
 :::warning 注意
-1. 支持 TLS 的节点类型有 Shadowsocks with v2ray-plugin(tls), Vmess(tls), HTTPS；
+1. 支持 TLS 的节点类型有 Shadowsocks with v2ray-plugin(tls), Vmess(tls), HTTPS, AnyTLS, MASQUE, TrustTunnel；
 2. 请不要随意将证书检查关闭；
 :::
 
+### nodeConfig.portHopping
+
+- 类型：`string`
+- 默认值：`undefined`
+
+开启 Tuic、Hysteria、Surge MASQUE 和 Stash TrustTunnel QUIC 协议端口跳跃，目前仅 Surge, Sing-box, Stash 和 Mihomo 支持这一特性。例如 `5000,6000-7000`。该配置支持逗号或分号分割的端口列表，以及连字符分割的端口范围，Surgio 会自动转换成 Surge 和 Stash 支持的格式。Sing-box 的 Hysteria 协议也支持端口跳跃，但仅支持 `6000-7000` 这样连字符分割的端口范围，单个端口的配置会被忽略。MASQUE 端口跳跃仅输出到 Surge，且不能与 `underlyingProxy` 同时使用。TrustTunnel 端口跳跃仅输出到 Stash，并要求 `quic: true`。
+
+### nodeConfig.portHoppingInterval
+
+- 类型：`number`
+- 默认值：`undefined`
+
+端口跳跃的间隔时间，单位为秒。目前仅 Surge, Stash 和 Mihomo 支持这一特性。
+
 ### nodeConfig.underlyingProxy
 
-- 类型: `string`
-- 默认值: `undefined`
+- 类型：`string`
+- 默认值：`undefined`
 
-可以通过一个代理跳板使用另一个代理，可以无限嵌套使用。目前仅 Surge 支持该特性。
+可以通过一个代理跳板使用另一个代理，可以无限嵌套使用。TrustTunnel 可为 Surge、Stash 和 Mihomo 输出该字段。
 
 :::warning 注意
 Surgio 不会验证名称是否有效
@@ -825,8 +1064,8 @@ Surgio 不会验证名称是否有效
 
 ### nodeConfig.testUrl
 
-- 类型: `string`
-- 默认值: `undefined`
+- 类型：`string`
+- 默认值：`undefined`
 
 在新版的 Surge 中支持针对某个 Proxy 设置测试的地址。你可以通过这个参数来设置改地址。
 
@@ -837,28 +1076,30 @@ Surgio 不会验证名称是否有效
 
 ### nodeConfig.serverCertFingerprintSha256
 
-- 类型: `string`
-- 默认值: `undefined`
+- 类型：`string`
+- 默认值：`undefined`
 
-用于验证服务器证书的 SHA256 指纹。目前仅 Surge 支持该特性。
+用于验证服务器证书的 SHA256 指纹。TrustTunnel 会分别输出 Surge 的 `server-cert-fingerprint-sha256`、Stash 的 `server-cert-fingerprint` 和 Mihomo 的 `fingerprint`。
 
 ### nodeConfig.ecn
 
-- 类型: `boolean`
-- 默认值: `false`
+- 类型：`boolean`
+- 默认值：`false`
 
 是否为该节点开启 [ECN（Explicit Congestion Notification）](https://yach.me/2023/10/14/ccn-and-ecn/)。目前仅 Surge 支持这一特性。
 
 ### nodeConfig.blockQuic
 
-- 类型: `string`
-- 默认值: `undefined`
+- 类型：`string`
+- 默认值：`undefined`
 
-通过代理转发 QUIC 流量可能会导致性能问题。启用该选项将阻止 QUIC 流量，使客户端退回到传统的 HTTPS/TCP 协议。目前仅 Surge 支持这一特性。
+通过代理转发 QUIC 流量可能会导致性能问题。启用该选项将阻止 QUIC 流量，使客户端退回到传统的 HTTPS/TCP 协议。目前 Surge 和 Loon AnyTLS 支持这一特性。
 
 `auto`: 根据代理是否适合转发 QUIC 流量自动启用
 `on`: 强制阻止 QUIC 流量
 `off`: 不阻止 QUIC 流量
+
+Loon 仅支持布尔值，因此 `on` 和 `off` 分别输出为 `block-quic=true` 和 `block-quic=false`。`auto` 无法无损映射，Surgio 会省略该参数并输出警告。
 
 ### nodeConfig.multiplex
 
@@ -905,9 +1146,9 @@ Surgio 不会验证名称是否有效
 
 ### provider.nodeFilter
 
-- 类型: `Function`
-- 入参: `NodeConfig`
-- 返回值: `boolean`
+- 类型：`Function`
+- 入参：`NodeConfig`
+- 返回值：`boolean`
 
 有一些俗称「外贸机场」的服务商提供很多诸如马来西亚、土耳其的节点，不需要这些国家节点的朋友每次都要在数十个节点中寻找自己想要的。我们可以用这个方法把这些节点过滤掉。
 
@@ -926,9 +1167,9 @@ module.exports = {
 
 ### provider.netflixFilter
 
-- 类型: `Function`
-- 入参: `NodeConfig`
-- 返回值: `boolean`
+- 类型：`Function`
+- 入参：`NodeConfig`
+- 返回值：`boolean`
 
 该方法会覆盖 Surgio 内置的 `netflixFilter`。用于过滤出支持 Netflix 的节点。对于那些每一个节点都解锁流媒体的机场，也可以单独过滤出部分你喜欢的节点。
 
@@ -943,9 +1184,9 @@ module.exports = {
 
 ### provider.youtubePremiumFilter
 
-- 类型: `Function`
-- 入参: `NodeConfig`
-- 返回值: `boolean`
+- 类型：`Function`
+- 入参：`NodeConfig`
+- 返回值：`boolean`
 
 该方法会覆盖 Surgio 内置的 `youtubePremiumFilter`。用于过滤出支持 Youtube Premium 的节点。
 
@@ -953,8 +1194,8 @@ module.exports = {
 
 ### provider.customFilters
 
-- 类型: `object`
-- 默认值: `undefined`
+- 类型：`object`
+- 默认值：`undefined`
 
 自定义 Filter。关于自定义 Filter 的用法，请阅读 [进阶 - 自定义 Filter](/guide/advance/custom-filter)。
 
@@ -964,7 +1205,7 @@ module.exports = {
 
 ### provider.startPort
 
-- 类型: `number`
+- 类型：`number`
 
 在调用 `getSurgeNodes` 时会强制要求设置该值。建议大于 10000。
 
@@ -972,29 +1213,29 @@ module.exports = {
 
 ### provider.addFlag
 
-- 类型: `boolean`
-- 默认值: `false`
+- 类型：`boolean`
+- 默认值：`false`
 
 在节点名称前加国旗 Emoji。需要注意的是，Surgio 是根据有限的节点名关键词判断位置的，如果无法匹配则会保留原节点名。你可以在所有的过滤器中检索国旗 Emoji。
 
 ### provider.removeExistingFlag
 
-- 类型: `boolean`
-- 默认值: `false`
+- 类型：`boolean`
+- 默认值：`false`
 
 去除订阅中的国旗 Emoji。可以在不开启 `addFlag` 时使用，这时会输出没有 Emoji 的节点名称。
 
 ### provider.tfo
 
-- 类型: `boolean`
-- 默认值: `false`
+- 类型：`boolean`
+- 默认值：`false`
 
 是否为该订阅强制开启 TFO（TCP Fast Open）。部分机场虽然支持 TFO 但是没有在订阅中开启，你可以通过这个配置强制打开。
 
 ### provider.underlyingProxy
 
-- 类型: `string`
-- 默认值: `undefined`
+- 类型：`string`
+- 默认值：`undefined`
 
 是否对当前 Provider 中所有节点使用自定义 Underlying Proxy。在 `CustomProvider` 中也可以使用，但是优先级低于 `nodeConfig.underlyingProxy`。
 
@@ -1006,22 +1247,22 @@ Surgio 不会验证名称是否有效
 
 ### provider.mptcp
 
-- 类型: `boolean`
-- 默认值: `false`
+- 类型：`boolean`
+- 默认值：`false`
 
 是否为该订阅强制开启 Multipath TCP。目前仅 Surge 支持这一特性。
 
 ### provider.ecn
 
-- 类型: `boolean`
-- 默认值: `false`
+- 类型：`boolean`
+- 默认值：`false`
 
 是否为该订阅强制开启 ECN（Explicit Congestion Notification）。目前仅 Surge 支持这一特性。
 
 ### provider.blockQuic
 
-- 类型: `string`
-- 默认值: `undefined`
+- 类型：`string`
+- 默认值：`undefined`
 
 是否为该订阅强制阻止 QUIC 流量。目前仅 Surge 支持这一特性。
 
@@ -1031,8 +1272,8 @@ Surgio 不会验证名称是否有效
 
 ### provider.renameNode
 
-- 类型: `Function`
-- 默认值: `undefined`
+- 类型：`Function`
+- 默认值：`undefined`
 
 更改节点名。如果你对机场的奇葩命名有意见，可以在这里把他们替换掉。
 
@@ -1056,8 +1297,8 @@ module.exports = {
 
 ### provider.relayUrl
 
-- 类型: `Boolean|String`
-- 默认值: `undefined`
+- 类型：`Boolean|String`
+- 默认值：`undefined`
 
 开启订阅地址转发。由于部分机场禁止 AWS 等公有云服务器访问，所以面板无法获取订阅内容。开启后会使用一个免费并且安全的转发服务进行获取。
 
@@ -1083,8 +1324,8 @@ module.exports = {
 
 ### provider.requestUserAgent
 
-- 类型: `string`
-- 默认值: undefined
+- 类型：`string`
+- 默认值：undefined
 
 指定订阅请求头中的 User-Agent 字段。若不指定则使用内置的默认值 `surgio/<版本号>`。
 

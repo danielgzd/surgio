@@ -6,12 +6,17 @@ import { z } from 'zod'
 
 import {
   CLASH_META_SUPPORTED_VMESS_NETWORK,
+  CLASH_META_SUPPORTED_VLESS_NETWORK,
   STASH_SUPPORTED_VMESS_NETWORK,
+  STASH_SUPPORTED_VLESS_NETWORK,
 } from '../constant'
 import {
+  AnyTLSNodeConfig,
+  AnyTLSNodeConfigInput,
   ClashProviderConfig,
   HttpNodeConfig,
   HttpsNodeConfig,
+  Hysteria2NodeConfigInput,
   Hysteria2NodeConfig,
   NodeTypeEnum,
   ShadowsocksNodeConfig,
@@ -23,6 +28,13 @@ import {
   VlessNodeConfig,
   VmessNodeConfig,
   Socks5NodeConfig,
+  TuicNodeConfigInput,
+  TailscaleNodeConfig,
+  TailscaleNodeConfigInput,
+  MasqueNodeConfig,
+  MasqueNodeConfigInput,
+  TrustTunnelNodeConfig,
+  TrustTunnelNodeConfigInput,
 } from '../types'
 import {
   lowercaseHeaderKeys,
@@ -31,9 +43,23 @@ import {
   parseBitrate,
 } from '../utils'
 import relayableUrl from '../utils/relayable-url'
+import {
+  AnyTLSNodeConfigValidator,
+  Hysteria2NodeConfigValidator,
+  TuicNodeConfigValidator,
+  TailscaleNodeConfigValidator,
+  MasqueNodeConfigValidator,
+  TrustTunnelNodeConfigValidator,
+} from '../validators'
 
 import Provider from './Provider'
-import { GetNodeListFunction, GetSubscriptionUserInfoFunction } from './types'
+import {
+  DefaultProviderRequestHeaders,
+  GetNodeListFunction,
+  GetNodeListV2Function,
+  GetNodeListV2Result,
+  GetSubscriptionUserInfoFunction,
+} from './types'
 
 type SupportConfigTypes =
   | ShadowsocksNodeConfig
@@ -47,6 +73,10 @@ type SupportConfigTypes =
   | TuicNodeConfig
   | Hysteria2NodeConfig
   | Socks5NodeConfig
+  | AnyTLSNodeConfig
+  | TailscaleNodeConfig
+  | MasqueNodeConfig
+  | TrustTunnelNodeConfig
 
 const logger = createLogger({
   service: 'surgio:ClashProvider',
@@ -79,6 +109,10 @@ export default class ClashProvider extends Provider {
     this.udpRelay = result.data.udpRelay
     this.tls13 = result.data.tls13
     this.supportGetSubscriptionUserInfo = true
+
+    if (!this.config.requestUserAgent) {
+      this.config.requestUserAgent = getNetworkClashUA()
+    }
   }
 
   // istanbul ignore next
@@ -89,18 +123,21 @@ export default class ClashProvider extends Provider {
   public getSubscriptionUserInfo: GetSubscriptionUserInfoFunction = async (
     params = {},
   ) => {
-    const requestUserAgent = this.determineRequestUserAgent(
+    const requestHeaders = this.determineRequestHeaders(
       params.requestUserAgent,
+      params.requestHeaders,
     )
-    const { subscriptionUserinfo } = await getClashSubscription({
+    const cacheKey = Provider.getResourceCacheKey(requestHeaders, this.url)
+    const { subscriptionUserInfo } = await getClashSubscription({
       url: this.url,
       udpRelay: this.udpRelay,
       tls13: this.tls13,
-      requestUserAgent,
+      requestHeaders,
+      cacheKey,
     })
 
-    if (subscriptionUserinfo) {
-      return subscriptionUserinfo
+    if (subscriptionUserInfo) {
+      return subscriptionUserInfo
     }
 
     return undefined
@@ -109,14 +146,17 @@ export default class ClashProvider extends Provider {
   public getNodeList: GetNodeListFunction = async (
     params = {},
   ): Promise<SupportConfigTypes[]> => {
-    const requestUserAgent = this.determineRequestUserAgent(
+    const requestHeaders = this.determineRequestHeaders(
       params.requestUserAgent,
+      params.requestHeaders,
     )
+    const cacheKey = Provider.getResourceCacheKey(requestHeaders, this.url)
     const { nodeList } = await getClashSubscription({
       url: this.url,
       udpRelay: this.udpRelay,
       tls13: this.tls13,
-      requestUserAgent,
+      requestHeaders,
+      cacheKey,
     })
 
     if (this.config.hooks?.afterNodeListResponse) {
@@ -132,33 +172,84 @@ export default class ClashProvider extends Provider {
 
     return nodeList
   }
+
+  public getNodeListV2: GetNodeListV2Function = async (
+    params = {},
+  ): Promise<GetNodeListV2Result> => {
+    const requestHeaders = this.determineRequestHeaders(
+      params.requestUserAgent,
+      params.requestHeaders,
+    )
+    const cacheKey = Provider.getResourceCacheKey(requestHeaders, this.url)
+
+    const { nodeList, subscriptionUserInfo } = await getClashSubscription({
+      url: this.url,
+      udpRelay: this.udpRelay,
+      tls13: this.tls13,
+      requestHeaders,
+      cacheKey,
+    })
+
+    if (this.config.hooks?.afterNodeListResponse) {
+      const newList = await this.config.hooks.afterNodeListResponse(
+        nodeList,
+        params,
+      )
+
+      if (newList) {
+        return { nodeList: newList, subscriptionUserInfo }
+      }
+    }
+
+    return { nodeList, subscriptionUserInfo }
+  }
 }
 
 export const getClashSubscription = async ({
   url,
   udpRelay,
   tls13,
-  requestUserAgent,
+  requestHeaders,
+  cacheKey,
 }: {
   url: string
+  requestHeaders: DefaultProviderRequestHeaders
   udpRelay?: boolean
   tls13?: boolean
-  requestUserAgent?: string
+  cacheKey: string
 }): Promise<{
   readonly nodeList: Array<SupportConfigTypes>
-  readonly subscriptionUserinfo?: SubscriptionUserinfo
+  readonly subscriptionUserInfo?: SubscriptionUserinfo
 }> => {
   assert(url, '未指定订阅地址 url')
 
-  const response = await Provider.requestCacheableResource(url, {
-    requestUserAgent: requestUserAgent || getNetworkClashUA(),
-  })
+  const response = await Provider.requestCacheableResource(
+    url,
+    requestHeaders,
+    cacheKey,
+  )
   let clashConfig
 
   try {
-    // eslint-disable-next-line prefer-const
-    clashConfig = yaml.parse(response.body)
-  } catch (err) /* istanbul ignore next */ {
+    const doc = yaml.parseDocument(response.body, {
+      keepSourceTokens: true,
+    })
+    yaml.visit(doc, {
+      Pair: (_, node: any) => {
+        if (
+          node.key?.value === 'short-id' &&
+          typeof node.value?.value === 'number' && //short-id 应是字符串，如果这里是数字，则将 srcToken 的 source 赋给 value, 避免 yaml 转换错误，如："09561058" 变成 9561058
+          node.value?.srcToken
+        ) {
+          node.value.value = node.value.srcToken.source
+        }
+      },
+    })
+    if (doc.errors.length > 0) {
+      throw new Error() // yaml.parseDocument 语法错误时不会抛出异常，这里手动丢下 (跳转到下面的 catch)
+    }
+    clashConfig = doc.toJS()
+  } catch /* istanbul ignore next */ {
     throw new Error(`${url} 不是一个合法的 YAML 文件`)
   }
 
@@ -178,7 +269,7 @@ export const getClashSubscription = async ({
 
   return {
     nodeList: parseClashConfig(proxyList, udpRelay, tls13),
-    subscriptionUserinfo: response.subscriptionUserinfo,
+    subscriptionUserInfo: response.subscriptionUserInfo,
   }
 }
 
@@ -267,15 +358,20 @@ export const parseClashConfig = (
         case 'vless':
         case 'vmess': {
           // istanbul ignore next
-          if (
-            item.network &&
-            ![
-              ...CLASH_META_SUPPORTED_VMESS_NETWORK,
-              ...STASH_SUPPORTED_VMESS_NETWORK,
-            ].includes(item.network)
-          ) {
+          const supportedNetworks =
+            item.type === 'vless'
+              ? [
+                  ...CLASH_META_SUPPORTED_VLESS_NETWORK,
+                  ...STASH_SUPPORTED_VLESS_NETWORK,
+                ]
+              : [
+                  ...CLASH_META_SUPPORTED_VMESS_NETWORK,
+                  ...STASH_SUPPORTED_VMESS_NETWORK,
+                ]
+
+          if (item.network && !supportedNetworks.includes(item.network)) {
             logger.warn(
-              `不支持从 Clash 订阅中读取 network 类型为 ${item.network} 的 Vmess 节点，节点 ${item.name} 会被省略`,
+              `不支持从 Clash 订阅中读取 network 类型为 ${item.network} 的 ${item.type} 节点，节点 ${item.name} 会被省略`,
             )
             return undefined
           }
@@ -321,13 +417,28 @@ export const parseClashConfig = (
             if (typeof item['client-fingerprint'] === 'string') {
               vmessNode.clientFingerprint = item['client-fingerprint']
             }
+            if (Array.isArray(item.alpn) && item.alpn.length > 0) {
+              vmessNode.alpn = item.alpn
+            }
 
             vmessNode.skipCertVerify = item['skip-cert-verify'] === true
             vmessNode.tls13 = tls13 === true
           }
 
           if (vmessNode.type === NodeTypeEnum.Vless) {
-            vmessNode.flow = item.flow
+            if (typeof item.flow === 'string') {
+              vmessNode.flow = item.flow
+            }
+
+            if (typeof item.encryption === 'string') {
+              vmessNode.encryption = item.encryption
+            }
+            if (typeof item['packet-encoding'] === 'string') {
+              vmessNode.packetEncoding = item['packet-encoding']
+            }
+            if (item['ech-opts']) {
+              vmessNode.echOpts = item['ech-opts']
+            }
 
             if (item['reality-opts']) {
               vmessNode.realityOpts = {
@@ -367,14 +478,28 @@ export const parseClashConfig = (
             case 'http':
               vmessNode.httpOpts = {
                 ...item['http-opts'],
-                headers:
-                  resolveVmessHttpHeaders(item['http-opts'].headers) || {},
+                headers: resolveVmessHttpHeaders(
+                  item['http-opts'].headers || {},
+                ),
               }
 
               break
             case 'grpc':
               vmessNode.grpcOpts = {
                 serviceName: item['grpc-opts']['grpc-service-name'],
+              }
+
+              break
+            case 'xhttp':
+              if (vmessNode.type !== NodeTypeEnum.Vless) {
+                logger.warn(
+                  `mihomo 仅支持 VLESS 使用 xhttp 传输层，节点 ${item.name} 会被省略`,
+                )
+                return undefined
+              }
+              vmessNode.xhttpOpts = {
+                path: '/',
+                ...item['xhttp-opts'],
               }
 
               break
@@ -392,6 +517,7 @@ export const parseClashConfig = (
               port: item.port,
               username: item.username /* istanbul ignore next */ || '',
               password: item.password /* istanbul ignore next */ || '',
+              ...(item.headers ? { headers: item.headers } : null),
             } as HttpNodeConfig
           }
 
@@ -404,6 +530,7 @@ export const parseClashConfig = (
             password: item.password || '',
             tls13: tls13 ?? false,
             skipCertVerify: item['skip-cert-verify'] === true,
+            ...(item.headers ? { headers: item.headers } : null),
           } as HttpsNodeConfig
 
         case 'snell':
@@ -461,40 +588,62 @@ export const parseClashConfig = (
         }
 
         case 'tuic': {
-          if (item.version >= 5) {
-            return {
-              type: NodeTypeEnum.Tuic,
-              version: item.version,
-              nodeName: item.name,
-              hostname: item.server,
-              port: item.port,
-              password: item.password,
-              uuid: item.uuid,
-              ...('skip-cert-verify' in item
-                ? { skipCertVerify: item['skip-cert-verify'] === true }
-                : null),
-              tls13: tls13 ?? false,
-              ...('sni' in item ? { sni: item.sni } : null),
-              ...('alpn' in item ? { alpn: item.alpn } : null),
-            } as TuicNodeConfig
+          let input: TuicNodeConfigInput
+
+          const port = item.port ?? extractFirstPort(item.ports)
+
+          if (!port) {
+            throw new SurgioError('Tuic 节点配置校验失败，未指定端口或端口范围')
           }
 
-          return {
-            type: NodeTypeEnum.Tuic,
+          const tuicCommonFields = {
+            type: NodeTypeEnum.Tuic as const,
             nodeName: item.name,
             hostname: item.server,
-            port: item.port,
-            token: item.token,
+            port,
             ...('skip-cert-verify' in item
               ? { skipCertVerify: item['skip-cert-verify'] === true }
               : null),
             tls13: tls13 ?? false,
             ...('sni' in item ? { sni: item.sni } : null),
             ...('alpn' in item ? { alpn: item.alpn } : null),
-          } as TuicNodeConfig
+            ...('ports' in item
+              ? {
+                  portHopping: item.ports,
+                }
+              : null),
+            ...('hop-interval' in item
+              ? { portHoppingInterval: item['hop-interval'] }
+              : null),
+          }
+
+          if (item.uuid) {
+            input = {
+              ...tuicCommonFields,
+              password: item.password,
+              uuid: item.uuid,
+              version: item.version ?? 5,
+            }
+          } else {
+            input = {
+              ...tuicCommonFields,
+              token: item.token,
+            }
+          }
+
+          const result = TuicNodeConfigValidator.safeParse(input)
+
+          // istanbul ignore next
+          if (!result.success) {
+            throw new SurgioError('Tuic 节点配置校验失败', {
+              cause: result.error,
+            })
+          }
+
+          return result.data
         }
 
-        case 'hysteria2':
+        case 'hysteria2': {
           // istanbul ignore next
           if (item.obfs && item.obfs !== 'salamander') {
             throw new Error(
@@ -502,11 +651,19 @@ export const parseClashConfig = (
             )
           }
 
-          return {
+          const port = item.port ?? extractFirstPort(item.ports)
+
+          if (!port) {
+            throw new SurgioError(
+              'Hysteria2 节点配置校验失败，未指定端口或端口范围',
+            )
+          }
+
+          const input: Hysteria2NodeConfigInput = {
             type: NodeTypeEnum.Hysteria2,
             nodeName: item.name,
             hostname: item.server,
-            port: item.port,
+            port,
             password: item.auth || item.password,
             ...(item.down
               ? { downloadBandwidth: parseBitrate(item.down) }
@@ -521,7 +678,27 @@ export const parseClashConfig = (
             ...('skip-cert-verify' in item
               ? { skipCertVerify: item['skip-cert-verify'] === true }
               : null),
-          } as Hysteria2NodeConfig
+            ...('ports' in item
+              ? {
+                  portHopping: item.ports,
+                }
+              : null),
+            ...('hop-interval' in item
+              ? { portHoppingInterval: item['hop-interval'] }
+              : null),
+          }
+
+          const result = Hysteria2NodeConfigValidator.safeParse(input)
+
+          // istanbul ignore next
+          if (!result.success) {
+            throw new SurgioError('Hysteria2 节点配置校验失败', {
+              cause: result.error,
+            })
+          }
+
+          return result.data
+        }
 
         case 'socks5': {
           const socks5Node = {
@@ -550,6 +727,231 @@ export const parseClashConfig = (
           return socks5Node
         }
 
+        case 'anytls': {
+          const input: AnyTLSNodeConfigInput = {
+            type: NodeTypeEnum.AnyTLS,
+            nodeName: item.name,
+            hostname: item.server,
+            port: item.port,
+            password: item.password,
+            ...('skip-cert-verify' in item
+              ? { skipCertVerify: item['skip-cert-verify'] === true }
+              : null),
+            ...('alpn' in item ? { alpn: item.alpn } : null),
+            ...('sni' in item ? { sni: item.sni } : null),
+            udpRelay: resolveUdpRelay(item.udp, udpRelay),
+            tls13: tls13 ?? false,
+            ...('idle-session-check-interval' in item
+              ? {
+                  idleSessionCheckInterval: item['idle-session-check-interval'],
+                }
+              : null),
+            ...('idle-session-timeout' in item
+              ? { idleSessionTimeout: item['idle-session-timeout'] }
+              : null),
+            ...('min-idle-session' in item
+              ? { minIdleSessions: item['min-idle-session'] }
+              : null),
+          }
+
+          const result = AnyTLSNodeConfigValidator.safeParse(input)
+
+          // istanbul ignore next
+          if (!result.success) {
+            throw new SurgioError('AnyTLS 节点配置校验失败', {
+              cause: result.error,
+            })
+          }
+
+          return result.data
+        }
+
+        case 'masque': {
+          const input: MasqueNodeConfigInput = {
+            type: NodeTypeEnum.Masque,
+            authMode: 'key-pair',
+            nodeName: item.name,
+            hostname: item.server,
+            port: item.port,
+            privateKey: item['private-key'],
+            publicKey: item['public-key'],
+            ...('ip' in item ? { ip: item.ip } : null),
+            ...('ipv6' in item ? { ipv6: item.ipv6 } : null),
+            ...('dns' in item
+              ? {
+                  dnsServers: Array.isArray(item.dns) ? item.dns : [item.dns],
+                }
+              : null),
+            ...('network' in item
+              ? {
+                  network: item.network === 'quic' ? 'h3' : item.network,
+                }
+              : null),
+            ...('sni' in item ? { sni: item.sni } : null),
+            ...('connect-uri' in item
+              ? { connectUri: item['connect-uri'] }
+              : null),
+            ...('mtu' in item ? { mtu: item.mtu } : null),
+            ...('keepalive' in item ? { keepalive: item.keepalive } : null),
+            ...('udp' in item ? { udpRelay: item.udp } : null),
+            ...('remote-dns-resolve' in item
+              ? { remoteDnsResolve: item['remote-dns-resolve'] }
+              : null),
+            ...('congestion-controller' in item
+              ? { congestionController: item['congestion-controller'] }
+              : null),
+            ...('bbr-profile' in item
+              ? { bbrProfile: item['bbr-profile'] }
+              : null),
+            ...('handshake-timeout' in item
+              ? { handshakeTimeout: item['handshake-timeout'] }
+              : null),
+            ...('dialer-proxy' in item
+              ? { underlyingProxy: item['dialer-proxy'] }
+              : null),
+          }
+
+          const result = MasqueNodeConfigValidator.safeParse(input)
+
+          // istanbul ignore next
+          if (!result.success) {
+            throw new SurgioError('MASQUE 节点配置校验失败', {
+              cause: result.error,
+            })
+          }
+
+          return result.data
+        }
+
+        case 'trusttunnel': {
+          const port =
+            item.port ?? (item.ports ? extractFirstPort(item.ports) : undefined)
+
+          if (!port) {
+            throw new SurgioError(
+              'TrustTunnel 节点配置校验失败，未指定端口或端口范围',
+            )
+          }
+
+          const certificateFingerprint =
+            item['server-cert-fingerprint'] ?? item.fingerprint
+          const input: TrustTunnelNodeConfigInput = {
+            type: NodeTypeEnum.TrustTunnel,
+            nodeName: item.name,
+            hostname: item.server,
+            port,
+            username: item.username,
+            password: item.password,
+            ...('quic' in item ? { quic: item.quic } : null),
+            ...('udp' in item ? { udpRelay: item.udp } : null),
+            ...('sni' in item ? { sni: item.sni } : null),
+            ...('alpn' in item ? { alpn: item.alpn } : null),
+            ...('skip-cert-verify' in item
+              ? { skipCertVerify: item['skip-cert-verify'] === true }
+              : null),
+            ...(certificateFingerprint
+              ? { serverCertFingerprintSha256: certificateFingerprint }
+              : null),
+            ...('client-fingerprint' in item
+              ? { clientFingerprint: item['client-fingerprint'] }
+              : null),
+            ...('health-check' in item
+              ? { healthCheck: item['health-check'] }
+              : null),
+            ...('name-cert-verify' in item
+              ? { nameCertVerify: item['name-cert-verify'] }
+              : null),
+            ...('congestion-controller' in item
+              ? { congestionController: item['congestion-controller'] }
+              : null),
+            ...('bbr-profile' in item
+              ? { bbrProfile: item['bbr-profile'] }
+              : null),
+            ...('max-connections' in item
+              ? { maxConnections: item['max-connections'] }
+              : null),
+            ...('min-streams' in item
+              ? { minStreams: item['min-streams'] }
+              : null),
+            ...('max-streams' in item
+              ? { maxStreams: item['max-streams'] }
+              : null),
+            ...('ports' in item ? { portHopping: item.ports } : null),
+            ...('hop-interval' in item
+              ? { portHoppingInterval: item['hop-interval'] }
+              : null),
+            ...('dialer-proxy' in item
+              ? { underlyingProxy: item['dialer-proxy'] }
+              : null),
+            ...('interface-name' in item
+              ? { interfaceName: item['interface-name'] }
+              : null),
+            ...('ip-version' in item
+              ? { ipVersion: item['ip-version'] }
+              : null),
+            ...('tfo' in item ? { tfo: item.tfo } : null),
+            ...('mptcp' in item ? { mptcp: item.mptcp } : null),
+          }
+
+          const result = TrustTunnelNodeConfigValidator.safeParse(input)
+
+          // istanbul ignore next
+          if (!result.success) {
+            throw new SurgioError('TrustTunnel 节点配置校验失败', {
+              cause: result.error,
+            })
+          }
+
+          return result.data
+        }
+
+        case 'tailscale': {
+          const input: TailscaleNodeConfigInput = {
+            type: NodeTypeEnum.Tailscale,
+            nodeName: item.name,
+            ...('auth-key' in item ? { authKey: item['auth-key'] } : null),
+            ...('hostname' in item ? { hostname: item.hostname } : null),
+            ...('control-url' in item
+              ? { controlUrl: item['control-url'] }
+              : null),
+            ...('exit-node' in item ? { exitNode: item['exit-node'] } : null),
+            ...('ephemeral' in item ? { ephemeral: item.ephemeral } : null),
+            ...('state-dir' in item ? { stateDir: item['state-dir'] } : null),
+            ...('udp' in item ? { udpRelay: item.udp } : null),
+            ...('accept-routes' in item
+              ? { acceptRoutes: item['accept-routes'] }
+              : null),
+            ...('exit-node-allow-lan-access' in item
+              ? {
+                  exitNodeAllowLanAccess: item['exit-node-allow-lan-access'],
+                }
+              : null),
+            ...('dialer-proxy' in item
+              ? { underlyingProxy: item['dialer-proxy'] }
+              : null),
+            ...('interface-name' in item
+              ? { interfaceName: item['interface-name'] }
+              : null),
+            ...('routing-mark' in item
+              ? { routingMark: item['routing-mark'] }
+              : null),
+            ...('ip-version' in item
+              ? { ipVersion: item['ip-version'] }
+              : null),
+          }
+
+          const result = TailscaleNodeConfigValidator.safeParse(input)
+
+          // istanbul ignore next
+          if (!result.success) {
+            throw new SurgioError('Tailscale 节点配置校验失败', {
+              cause: result.error,
+            })
+          }
+
+          return result.data
+        }
+
         default:
           logger.warn(
             `不支持从 Clash 订阅中读取 ${item.type} 的节点，节点 ${item.name} 会被省略`,
@@ -569,6 +971,10 @@ function resolveUdpRelay(val?: boolean, defaultVal = false): boolean {
     return val
   }
   return defaultVal
+}
+
+function extractFirstPort(ports: string): number {
+  return Number(ports.split(/[;,-]/)[0])
 }
 
 function resolveVmessHttpHeaders(
